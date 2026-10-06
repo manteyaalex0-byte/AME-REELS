@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AME REELS</title>
+
+    <link
+        rel="stylesheet"
+        href="./style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- ================= BACKGROUND ================= -->
+
+<div class="bg-scene">
+
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+
+    <div class="cube cube1"></div>
+    <div class="cube cube2"></div>
+    <div class="cube cube3"></div>
+
+</div>
+
+
+
+<!-- ================= AUTH ================= -->
+
+<section
+    id="authScreen"
+    class="auth-screen"
+>
+
+    <div class="auth-card">
+
+
+        <div class="logo-box">
+
+            <div class="logo-3d">
+                A
+            </div>
+
+            <h1>
+                AME REELS
+            </h1>
+
+            <p>
+                Task Marketplace Platform
+            </p>
+
+        </div>
+
+
+
+        <div class="auth-tabs">
+
+            <button
+                type="button"
+                class="auth-tab active"
+                onclick="showAuth('login')"
+            >
+                Login
+            </button>
+
+
+            <button
+                type="button"
+                class="auth-tab"
+                onclick="showAuth('register')"
+            >
+                Register
+            </button>
+
+        </div>
+
+
+
+        <!-- ================= LOGIN ================= -->
+
+        <form id="loginForm">
+
+            <label>
+                Email
+            </label>
+
+            <input
+                type="email"
+                id="loginEmail"
+                placeholder="Enter email"
+                required
+            >
+
+
+            <label>
+                Password
+            </label>
+
+            <input
+                type="password"
+                id="loginPassword"
+                placeholder="Enter password"
+                required
+            >
+
+
+            <button
+                class="main-btn"
+                type="submit"
+            >
+                LOGIN
+            </button>
+
+        </form>
+
+
+
+        <!-- ================= REGISTER ================= -->
+
+        <form
+            id="registerForm"
+            class="hidden"
+        >
+
+            <label>
+                Full Name
+            </label>
+
+            <input
+                type="text"
+                id="registerName"
+                placeholder="Enter your full name"
+                required
+            >
+
+
+            <label>
+                Email
+            </label>
+
+            <input
+                type="email"
+                id="registerEmail"
+                placeholder="Enter your email"
+                required
+            >
+
+
+            <label>
+                Password
+            </label>
+
+            <input
+                type="password"
+                id="registerPassword"
+                placeholder="Create password"
+                required
+            >
+
+
+            <label>
+                Invitation Code
+            </label>
+
+            <input
+                type="text"
+                id="registerInviteCode"
+                placeholder="Enter invitation code"
+                required
+            >
+
+
+            <small class="field-help">
+                Enter the invitation code given
+                to you by the person who invited you.
+            </small>
+
+
+            <button
+                class="main-btn"
+                type="submit"
+            >
+                CREATE ACCOUNT
+            </button>
+
+        </form>
+
+
+        <p
+            id="authMessage"
+            class="message"
+        ></p>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- ================= APP ================= -->
+
+<section
+    id="appScreen"
+    class="hidden"
+>
+
+
+    <!-- ================= TOPBAR ================= -->
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-logo">
+                A
+            </div>
+
+
+            <div>
+
+                <strong>
+                    AME REELS
+                </strong>
+
+                <small>
+                    Task Marketplace
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="user-area">
+
+            <span id="topUserName">
+                User
+            </span>
+
+            <button
+                type="button"
+                onclick="logout()"
+                class="logout-btn"
+            >
+                Logout
+            </button>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- ================= MAIN ================= -->
+
+    <main class="main-container">
+
+
+
+        <!-- ================= DASHBOARD ================= -->
+
+        <section
+            id="dashboardPage"
+            class="page active-page"
+        >
+
+            <div class="welcome-panel">
+
+                <div>
+
+                    <span class="small-label">
+                        WELCOME BACK
+                    </span>
+
+                    <h2 id="welcomeName">
+                        Member
+                    </h2>
+
+                    <p>
+                        Your AME REELS account overview
+                    </p>
+
+                </div>
+
+
+                <div class="balance-display">
+
+                    <small>
+                        ACCOUNT BALANCE
+                    </small>
+
+                    <strong id="dashboardBalance">
+                        $0.00
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <span>
+                        Available Tasks
+                    </span>
+
+                    <strong id="availableTaskCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        My Tasks
+                    </span>
+
+                    <strong id="myTaskCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        Total Earnings
+                    </span>
+
+                    <strong id="totalEarnings">
+                        $0.00
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        VIP Level
+                    </span>
+
+                    <strong id="dashboardVip">
+                        None
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- ================= CURRENT VIP ================= -->
+
+            <div class="vip-status-card">
+
+                <div>
+
+                    <span class="small-label">
+                        CURRENT STATUS
+                    </span>
+
+                    <h3 id="currentVipTitle">
+                        No VIP Activated
+                    </h3>
+
+                    <p id="contractText">
+                        Activate a VIP package to start your contract.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="primary-action"
+                    onclick="openPage('vipPage')"
+                >
+                    UNLOCK VIP
+                </button>
+
+            </div>
+
+
+
+            <h2 class="section-title">
+                Quick Actions
+            </h2>
+
+
+            <div class="quick-grid">
+
+                <button
+                    type="button"
+                    onclick="openPage('tasksPage')"
+                >
+                    📋
+                    <span>
+                        Tasks
+                    </span>
+                </button>
+
+
+                <button
+                    type="button"
+                    onclick="openPage('vipPage')"
+                >
+                    👑
+                    <span>
+                        Unlock VIP
+                    </span>
+                </button>
+
+
+                <button
+                    type="button"
+                    onclick="openPage('walletPage')"
+                >
+                    💰
+                    <span>
+                        Wallet
+                    </span>
+                </button>
+
+
+                <button
+                    type="button"
+                    onclick="openPage('withdrawPage')"
+                >
+                    💸
+                    <span>
+                        Withdrawal
+                    </span>
+                </button>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= TASKS ================= -->
+
+        <section
+            id="tasksPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    MARKETPLACE
+                </span>
+
+                <h2>
+                    Daily Task
+                </h2>
+
+                <p>
+                    Complete your available daily task.
+                </p>
+
+            </div>
+
+
+            <div id="taskList">
+
+                <!-- VIP 1 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="1"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 1 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Content Review
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            content review task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $1.20
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(1,1.20,'Content Review')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 2 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="2"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 2 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Data Checking
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            data checking task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $2.60
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(2,2.60,'Data Checking')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 3 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="3"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 3 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Content Tagging
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            content tagging task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $3.60
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(3,3.60,'Content Tagging')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 4 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="4"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 4 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Research Task
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            research task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $5.00
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(4,5.00,'Research Task')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 5 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="5"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 5 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Advanced Review
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            advanced review task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $6.60
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(5,6.60,'Advanced Review')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 6 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="6"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 6 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Advanced Data Task
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            advanced data task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $9.00
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(6,9.00,'Advanced Data Task')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- VIP 7 -->
+
+                <div
+                    class="task-card vip-task"
+                    data-vip="7"
+                >
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP 7 DAILY TASK
+                        </span>
+
+                        <h3>
+                            Premium Task
+                        </h3>
+
+                        <p>
+                            Complete today's approved
+                            premium task.
+                        </p>
+
+                    </div>
+
+
+                    <div class="task-right">
+
+                        <strong>
+                            $14.00
+                        </strong>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="acceptVipTask(7,14.00,'Premium Task')"
+                        >
+                            ACCEPT
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= MY TASKS ================= -->
+
+        <section
+            id="myTasksPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    WORK AREA
+                </span>
+
+                <h2>
+                    My Tasks
+                </h2>
+
+            </div>
+
+
+            <div id="myTasksList">
+
+                <div class="empty-box">
+                    No tasks accepted yet.
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= VIP ================= -->
+
+        <section
+            id="vipPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    MEMBERSHIP
+                </span>
+
+                <h2>
+                    Unlock VIP
+                </h2>
+
+                <p>
+                    Select a VIP level to view
+                    its configured task package.
+                </p>
+
+            </div>
+
+
+            <div class="vip-current">
+
+                <div>
+
+                    <span>
+                        Current VIP
+                    </span>
+
+                    <strong id="vipPageCurrent">
+                        None
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Account Balance
+                    </span>
+
+                    <strong id="vipPageBalance">
+                        $0.00
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="vip-grid"
+                id="vipGrid"
+            ></div>
+
+        </section>
+
+
+
+        <!-- ================= WALLET ================= -->
+
+        <section
+            id="walletPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    FINANCE
+                </span>
+
+                <h2>
+                    Wallet
+                </h2>
+
+            </div>
+
+
+            <div class="wallet-card">
+
+                <span>
+                    Available Balance
+                </span>
+
+                <strong id="walletBalance">
+                    $0.00
+                </strong>
+
+
+                <div class="wallet-buttons">
+
+                    <button
+                        type="button"
+                        onclick="openPage('rechargePage')"
+                    >
+                        RECHARGE
+                    </button>
+
+
+                    <button
+                        type="button"
+                        onclick="openPage('withdrawPage')"
+                    >
+                        WITHDRAW
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+>
+
+        <!-- ================= RECHARGE ================= -->
+
+<section
+    id="rechargePage"
+    class="page"
+>
+
+    <div class="page-heading">
+
+        <span class="small-label">
+            CRYPTO
+        </span>
+
+        <h2>
+            Recharge
+        </h2>
+
+        <p>
+            Add funds to your AME REELS account.
+        </p>
+
+    </div>
+
+
+    <div class="form-card">
+
+        <label>
+            Asset / Network
+        </label>
+
+
+        <select
+            id="rechargeNetwork"
+            onchange="updateRechargeAddress()"
+        >
+
+            <option value="USDT — TRC20">
+                USDT — TRC20
+            </option>
+
+            <option value="USDT — ERC20">
+                USDT — ERC20
+            </option>
+
+            <option value="USDT — BEP-20">
+                USDT — BEP-20
+            </option>
+
+            <option value="USDC — ERC20">
+                USDC — ERC20
+            </option>
+
+            <option value="USDC — Polygon">
+                USDC — Polygon
+            </option>
+
+        </select>
+
+
+
+        <!-- ================= DEPOSIT ADDRESS ================= -->
+
+        <label>
+            Deposit Address
+        </label>
+
+
+        <div class="recharge-address-row">
+
+            <input
+                type="text"
+                id="rechargeAddress"
+                readonly
+                value="TDivZhsq2g2is5GGouYE2iXfkJRwZLBxkY"
+            >
+
+
+            <button
+                type="button"
+                class="main-btn"
+                onclick="copyRechargeAddress()"
+            >
+                COPY ADDRESS
+            </button>
+
+        </div>
+
+
+        <p
+            id="rechargeNetworkWarning"
+            class="message"
+        >
+            Send only the selected asset through the selected network.
+        </p>
+
+
+
+        <label>
+            Amount
+        </label>
+
+
+        <input
+            type="number"
+            id="rechargeAmount"
+            min="1"
+            step="0.01"
+            placeholder="Enter amount"
+            required
+        >
+
+
+        <button
+            type="button"
+            class="main-btn"
+            onclick="requestRecharge()"
+        >
+            REQUEST RECHARGE
+        </button>
+
+
+        <p
+            id="rechargeMessage"
+            class="message"
+        ></p>
+
+    </div>
+
+</section>
+
+
+        <!-- ================= WITHDRAW ================= -->
+
+        <section
+            id="withdrawPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    CRYPTO
+                </span>
+
+                <h2>
+                    Withdrawal
+                </h2>
+
+                <p>
+                    Minimum withdrawal: $2.00
+                </p>
+
+            </div>
+
+
+            <div class="form-card">
+
+
+                <label>
+                    Asset / Network
+                </label>
+
+
+                <select id="withdrawNetwork">
+
+                    <option value="USDT — TRC20">
+                        USDT — TRC20
+                    </option>
+
+                    <option value="USDT — ERC20">
+                        USDT — ERC20
+                    </option>
+
+                    <option value="USDT — BEP-20">
+                        USDT — BEP-20
+                    </option>
+
+                    <option value="USDC — BEP-20">
+                        USDC — BEP-20
+                    </option>
+
+                    <option value="USDC — Polygon">
+                        USDC — Polygon
+                    </option>
+
+                </select>
+
+
+
+                <label>
+                    Receiving Wallet Address
+                </label>
+
+
+                <input
+                    type="text"
+                    id="withdrawWallet"
+                    placeholder="Enter receiving address"
+                    required
+                >
+
+
+
+                <label>
+                    Amount
+                </label>
+
+
+                <input
+                    type="number"
+                    id="withdrawAmount"
+                    min="2"
+                    step="0.01"
+                    placeholder="Minimum $2.00"
+                    oninput="calculateWithdrawal()"
+                    required
+                >
+
+
+
+                <div class="withdraw-summary">
+
+                    <div>
+
+                        <span>
+                            Gross
+                        </span>
+
+                        <strong id="grossAmount">
+                            $0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            20% Fee
+                        </span>
+
+                        <strong id="withdrawFee">
+                            $0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            You Receive
+                        </span>
+
+                        <strong id="netAmount">
+                            $0.00
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="requestWithdrawal()"
+                >
+                    REQUEST WITHDRAWAL
+                </button>
+
+
+                <p
+                    id="withdrawMessage"
+                    class="message"
+                ></p>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= EARNINGS ================= -->
+
+        <section
+            id="earningsPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    ACCOUNT
+                </span>
+
+                <h2>
+                    Earnings
+                </h2>
+
+            </div>
+
+
+            <div class="earning-card">
+
+                <span>
+                    Total Earnings
+                </span>
+
+                <strong id="earningTotal">
+                    $0.00
+                </strong>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= REFERRAL ================= -->
+
+        <section
+            id="referralPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    NETWORK
+                </span>
+
+                <h2>
+                    Referral Center
+                </h2>
+
+                <p>
+                    Invite friends to join AME REELS
+                    using your referral code.
+                </p>
+
+            </div>
+
+
+
+            <div class="referral-card">
+
+                <span class="small-label">
+                    YOUR REFERRAL CODE
+                </span>
+
+
+                <strong
+                    id="referralCode"
+                    class="referral-code-display"
+                >
+                    AME000001
+                </strong>
+
+
+                <p>
+                    Share this code with people you
+                    invite to AME REELS.
+                </p>
+
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="copyReferralCode()"
+                >
+                    📋 COPY REFERRAL CODE
+                </button>
+
+            </div>
+
+
+
+            <div class="referral-card">
+
+                <span class="small-label">
+                    YOUR REFERRAL LINK
+                </span>
+
+
+                <input
+                    type="text"
+                    id="referralLink"
+                    readonly
+                    placeholder="Your referral link will appear here"
+                >
+
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="copyReferralLink()"
+                >
+                    🔗 COPY REFERRAL LINK
+                </button>
+
+            </div>
+
+
+
+            <div class="referral-card">
+
+                <span class="small-label">
+                    INVITE FRIENDS
+                </span>
+
+
+                <h3>
+                    Share AME REELS
+                </h3>
+
+
+                <p>
+                    Send your referral invitation
+                    directly to your friends.
+                </p>
+
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="shareReferral()"
+                >
+                    📤 SHARE REFERRAL
+                </button>
+
+            </div>
+
+
+
+            <div class="referral-card">
+
+                <span class="small-label">
+                    REFERRAL REWARD
+                </span>
+
+
+                <h3>
+                    12% Referral Reward
+                </h3>
+
+
+                <p>
+                    Referral rewards are credited only
+                    after an invited account activates
+                    an eligible VIP package.
+                </p>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= ADMIN PANEL ================= -->
+
+        <section
+            id="adminPage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    ADMINISTRATION
+                </span>
+
+                <h2>
+                    Admin Panel
+                </h2>
+
+                <p>
+                    Manage AME REELS accounts, recharge requests,
+                    VIP activations and withdrawals.
+                </p>
+
+            </div>
+
+
+
+            <!-- ADMIN SUMMARY -->
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <span>
+                        Total Users
+                    </span>
+
+                    <strong id="adminUserCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        Pending Recharges
+                    </span>
+
+                    <strong id="adminRechargeCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        Pending VIP
+                    </span>
+
+                    <strong id="adminVipCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        Pending Withdrawals
+                    </span>
+
+                    <strong id="adminWithdrawalCount">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- RECHARGE REQUESTS -->
+
+            <div class="form-card">
+
+                <div class="page-heading">
+
+                    <span class="small-label">
+                        FINANCE
+                    </span>
+
+                    <h3>
+                        Recharge Requests
+                    </h3>
+
+                </div>
+
+
+                <div id="adminRechargeList">
+
+                    <div class="empty-box">
+                        Loading recharge requests...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- VIP ACTIVATION REQUESTS -->
+
+            <div class="form-card">
+
+                <div class="page-heading">
+
+                    <span class="small-label">
+                        MEMBERSHIP
+                    </span>
+
+                    <h3>
+                        VIP Activation Requests
+                    </h3>
+
+                </div>
+
+
+                <div id="adminVipList">
+
+                    <div class="empty-box">
+                        Loading VIP requests...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- WITHDRAWAL REQUESTS -->
+
+            <div class="form-card">
+
+                <div class="page-heading">
+
+                    <span class="small-label">
+                        WITHDRAWALS
+                    </span>
+
+                    <h3>
+                        Withdrawal Requests
+                    </h3>
+
+                </div>
+
+
+                <div id="adminWithdrawalList">
+
+                    <div class="empty-box">
+                        Loading withdrawal requests...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- USERS -->
+
+            <div class="form-card">
+
+                <div class="page-heading">
+
+                    <span class="small-label">
+                        ACCOUNTS
+                    </span>
+
+                    <h3>
+                        Registered Users
+                    </h3>
+
+                </div>
+
+
+                <div id="adminUsersList">
+
+                    <div class="empty-box">
+                        Loading users...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <p
+                id="adminMessage"
+                class="message"
+            ></p>
+
+        </section>
+
+
+
+        <!-- ================= PROFILE ================= -->
+
+        <section
+            id="profilePage"
+            class="page"
+        >
+
+            <div class="page-heading">
+
+                <span class="small-label">
+                    ACCOUNT
+                </span>
+
+                <h2>
+                    Profile
+                </h2>
+
+            </div>
+
+
+            <div class="profile-card">
+
+                <div class="profile-avatar">
+                    A
+                </div>
+
+
+                <h3 id="profileName">
+                    Member
+                </h3>
+
+
+                <p id="profileEmail">
+                    —
+                </p>
+
+
+                <div class="profile-vip">
+
+                    <span>
+                        VIP Role
+                    </span>
+
+                    <strong id="profileVip">
+                        None
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- ================= ADMIN ACCESS ================= -->
+
+            <div
+                class="profile-card"
+                id="adminAccessCard"
+            >
+
+                <span class="small-label">
+                    ADMINISTRATION
+                </span>
+
+                <h3>
+                    Admin Panel
+                </h3>
+
+                <p>
+                    Manage users, recharge requests,
+                    VIP activations and account operations.
+                </p>
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="openAdminPanel()"
+                >
+                    🛡️ OPEN ADMIN PANEL
+                </button>
+
+            </div>
+
+
+
+            <!-- ================= TELEGRAM ADMIN ================= -->
+
+            <div class="profile-card telegram-card">
+
+                <span class="small-label">
+                    SUPPORT
+                </span>
+
+
+                <h3>
+                    Need Help?
+                </h3>
+
+
+                <p>
+                    Contact the AME REELS Admin directly
+                    on Telegram for assistance or
+                    account support.
+                </p>
+
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="contactAdminTelegram()"
+                >
+                    📱 CONTACT ADMIN ON TELEGRAM
+                </button>
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+
+
+    <!-- ================= BOTTOM NAV ================= -->
+
+    <nav class="bottom-nav">
+
+        <button
+            type="button"
+            onclick="openPage('dashboardPage')"
+        >
+            <span>
+                ⌂
+            </span>
+            Home
+        </button>
+
+
+        <button
+            type="button"
+            onclick="openPage('tasksPage')"
+        >
+            <span>
+                ▣
+            </span>
+            Tasks
+        </button>
+
+
+        <button
+            type="button"
+            onclick="openPage('vipPage')"
+            class="vip-nav"
+        >
+            <span>
+                ♛
+            </span>
+            VIP
+        </button>
+
+
+        <button
+            type="button"
+            onclick="openPage('walletPage')"
+        >
+            <span>
+                ◈
+            </span>
+            Wallet
+        </button>
+                <button
+            type="button"
+            onclick="openPage('earningsPage')"
+        >
+            <span>
+                📊
+            </span>
+            Earnings
+        </button>
+
+        <button
+            type="button"
+            onclick="openPage('referralPage')"
+        >
+            <span>
+                👥
+            </span>
+            Referral
+        </button>
+
+
+        <button
+            type="button"
+            onclick="openPage('profilePage')"
+        >
+            <span>
+                ●
+            </span>
+            Profile
+        </button>
+
+    </nav>
+
+
+</section>
+
+
+
+<!-- ================= VIP MODAL ================= -->
+
+<div
+    id="vipModal"
+    class="modal hidden"
+>
+
+    <div class="modal-card">
+
+        <button
+            type="button"
+            class="modal-close"
+            onclick="closeVipModal()"
+        >
+            ×
+        </button>
+
+
+        <div class="modal-crown">
+            ♛
+        </div>
+
+
+        <span class="small-label">
+            VIP ACTIVATION
+        </span>
+
+
+        <h2 id="modalVipTitle">
+            VIP 1
+        </h2>
+
+
+        <div class="activation-details">
+
+            <div>
+
+                <span>
+                    Unlock Amount
+                </span>
+
+                <strong id="modalUnlockAmount">
+                    $9.00
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Configured Daily Task Amount
+                </span>
+
+                <strong id="modalDailyAmount">
+                    $1.20
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Contract Duration
+                </span>
+
+                <strong>
+                    72 Days
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <div class="balance-check">
+
+            <span>
+                Your Balance
+            </span>
+
+            <strong id="modalBalance">
+                $0.00
+            </strong>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="confirmVipButton"
+            class="unlock-button"
+            onclick="confirmVipUnlock()"
+        >
+            CONFIRM UNLOCK
+        </button>
+
+
+        <p
+            id="vipModalMessage"
+            class="message"
+        ></p>
+
+    </div>
+
+</div>
+
+
+
+<!-- ================= SUPABASE ================= -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+const SUPABASE_URL =
+    "https://xzocfsrmovqauexrbmjb.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_qDESXYBOKPJ7kzstZ2EWWg_ItmHH1RW";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+console.log(
+    "Supabase connected successfully."
+);
+
+</script>
+
+
+
+<!-- ================= APPLICATION ================= -->
+
+<script src="./app.js"></script>
+
+
+</body>
+
+</html>
