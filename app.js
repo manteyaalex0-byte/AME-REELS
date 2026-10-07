@@ -4754,20 +4754,40 @@ async function rejectWithdrawal(
 
 }
 
+function contactAdminWhatsApp() {
 
-/* =========================================================
-   TELEGRAM ADMIN
-   ========================================================= */
-function contactAdminTelegram() {
-    const telegram =
-        "https://t.me/AMEREELCOMPANY";
+    const whatsappNumber =
+        "254111840669";
+
+    const whatsapp =
+        "https://wa.me/" + whatsappNumber;
 
     window.open(
-        telegram,
-        "_blank"
+        whatsapp,
+        "_blank",
+        "noopener,noreferrer"
     );
 }
 
+
+function joinWhatsAppGroup() {
+
+    const groupLink =
+        "https://chat.whatsapp.com/FCS4uDnwTlzBNoH6N4wtTt?s=cl&p=a&ilr=4&iam=0";
+
+    window.open(
+        groupLink,
+        "_blank",
+        "noopener,noreferrer"
+    );
+}
+
+
+window.contactAdminWhatsApp =
+    contactAdminWhatsApp;
+
+window.joinWhatsAppGroup =
+    joinWhatsAppGroup;
 
 
 /* =========================================================
