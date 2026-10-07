@@ -1,329 +1,5191 @@
 /* =========================================================
-   AME REELS - COMPLETE APPLICATION CONTROLLER
-   Supabase connection is supplied by index.html.
+   AME REELS
+   SUPABASE APPLICATION
+   COMPLETE APPLICATION CONTROLLER
    ========================================================= */
+
+
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
 const db = supabaseClient;
-let currentUser=null,currentProfile=null,selectedVip=null;
-const INVITATION_CODE="AMEREELS";
-const WITHDRAWAL_MINIMUM=2;
-const WITHDRAWAL_FEE_RATE=.20;
-const REFERRAL_REWARD_RATE=.12;
-const VIP_LEVELS={
-1:{unlock:9,daily:1.20,task:"Content Review"},
-2:{unlock:27,daily:2.60,task:"Data Checking"},
-3:{unlock:64,daily:3.60,task:"Content Tagging"},
-4:{unlock:112,daily:5.00,task:"Research Task"},
-5:{unlock:180,daily:6.60,task:"Advanced Review"},
-6:{unlock:240,daily:9.00,task:"Advanced Data Task"},
-7:{unlock:320,daily:14.00,task:"Premium Task"}
-};
-const RECHARGE_ADDRESSES={
-"USDT TRC20":"TDivZhsq2g2is5GGouYE2iXfkJRwZLBxkY",
-"USDT ERC20":"0xaea9be302fd28d897cdf1cad3d78326c65126c72",
-"USDT BEP-20":"0xaea9be302fd28d897cdf1cad3d78326c65126c72",
-"USDC ERC20":"0xaea9be302fd28d897cdf1cad3d78326c65126c72",
-"USDC Polygon":"0xaea9be302fd28d897cdf1cad3d78326c65126c72"
+
+
+/* =========================================================
+   GLOBAL STATE
+   ========================================================= */
+
+let currentUser = null;
+let currentProfile = null;
+let selectedVip = null;
+
+
+/* =========================================================
+   VIP CONFIGURATION
+   ========================================================= */
+
+const VIP_LEVELS = [
+    {
+        level: 1,
+        unlock: 9,
+        daily: 1.20,
+        task: "Content Review"
+    },
+    {
+        level: 2,
+        unlock: 27,
+        daily: 2.60,
+        task: "Data Checking"
+    },
+    {
+        level: 3,
+        unlock: 64,
+        daily: 3.60,
+        task: "Content Tagging"
+    },
+    {
+        level: 4,
+        unlock: 112,
+        daily: 5.00,
+        task: "Research Task"
+    },
+    {
+        level: 5,
+        unlock: 180,
+        daily: 6.60,
+        task: "Advanced Review"
+    },
+    {
+        level: 6,
+        unlock: 240,
+        daily: 9.00,
+        task: "Advanced Data Task"
+    },
+    {
+        level: 7,
+        unlock: 320,
+        daily: 14.00,
+        task: "Premium Task"
+    }
+];
+
+
+const INVITATION_CODE = "AMEREELS";
+const WITHDRAWAL_MINIMUM = 2;
+const WITHDRAWAL_FEE_RATE = 0.20;
+const REFERRAL_REWARD_RATE = 0.12;
+
+
+/* =========================================================
+   STARTUP
+   ========================================================= */
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    setupAuth();
+
+    buildVipGrid();
+
+    prepareReferralRegistration();
+
+    checkExistingSession();
+
+});
+
+
+/* =========================================================
+   AUTHENTICATION
+   ========================================================= */
+
+function setupAuth() {
+
+    const loginForm =
+        document.getElementById("loginForm");
+
+    const registerForm =
+        document.getElementById("registerForm");
+
+
+    if (loginForm) {
+
+        loginForm.addEventListener(
+            "submit",
+            async function (event) {
+
+                event.preventDefault();
+
+                await loginUser();
+
+            }
+        );
+
+    }
+
+
+    if (registerForm) {
+
+        registerForm.addEventListener(
+            "submit",
+            async function (event) {
+
+                event.preventDefault();
+
+                await registerUser();
+
+            }
+        );
+
+    }
+
+
+    db.auth.onAuthStateChange(
+        async function (event, session) {
+
+            if (session && session.user) {
+
+                currentUser = session.user;
+
+                /*
+                 * Small delay prevents Supabase auth
+                 * callback from competing with sign-up.
+                 */
+
+                setTimeout(
+                    async function () {
+
+                        await loadProfile();
+
+                    },
+                    0
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   AUTH TABS
+   ========================================================= */
+
+function showAuth(mode) {
+
+    const loginForm =
+        document.getElementById("loginForm");
+
+    const registerForm =
+        document.getElementById("registerForm");
+
+    const tabs =
+        document.querySelectorAll(".auth-tab");
+
+
+    if (mode === "register") {
+
+        if (loginForm) {
+            loginForm.classList.add("hidden");
+        }
+
+        if (registerForm) {
+            registerForm.classList.remove("hidden");
+        }
+
+        if (tabs.length >= 2) {
+
+            tabs[0].classList.remove("active");
+            tabs[1].classList.add("active");
+
+        }
+
+    } else {
+
+        if (registerForm) {
+            registerForm.classList.add("hidden");
+        }
+
+        if (loginForm) {
+            loginForm.classList.remove("hidden");
+        }
+
+        if (tabs.length >= 2) {
+
+            tabs[1].classList.remove("active");
+            tabs[0].classList.add("active");
+
+        }
+
+    }
+
+
+    clearAuthMessage();
+
+}
+
+
+/* =========================================================
+   AUTH MESSAGE
+   ========================================================= */
+
+function showAuthMessage(message, isError = true) {
+
+    const element =
+        document.getElementById("authMessage");
+
+    if (!element) {
+        return;
+    }
+
+    element.textContent = message;
+
+    element.style.display = "block";
+
+    element.style.color =
+        isError ? "#ff6b6b" : "#55efc4";
+
+}
+
+
+function clearAuthMessage() {
+
+    const element =
+        document.getElementById("authMessage");
+
+    if (element) {
+
+        element.textContent = "";
+
+    }
+
+}
+
+/* =========================================================
+   REGISTER
+   ========================================================= */
+
+async function registerUser() {
+
+    const name =
+        document
+            .getElementById("registerName")
+            .value
+            .trim();
+
+    const email =
+        document
+            .getElementById("registerEmail")
+            .value
+            .trim();
+
+    const password =
+        document
+            .getElementById("registerPassword")
+            .value;
+
+    if (!name || !email || !password) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    if (password.length < 6) {
+        alert(
+            "Password must be at least 6 characters."
+        );
+        return;
+    }
+
+    try {
+
+        /* ================================
+           FIND REFERRER FROM SHARED LINK
+        ================================= */
+
+        let referredBy = null;
+
+        const referralCode =
+            getReferralCodeFromUrl();
+
+        if (referralCode) {
+
+            const {
+                data: referrerId,
+                error: referrerError
+            } = await db.rpc(
+                "get_referrer_by_code",
+                {
+                    p_referral_code:
+                        referralCode
+                }
+            );
+
+            if (referrerError) {
+                throw referrerError;
+            }
+
+            if (referrerId) {
+                referredBy =
+                    referrerId;
+            }
+        }
+
+        /* ================================
+           CREATE AUTH ACCOUNT
+        ================================= */
+
+        const {
+            data,
+            error
+        } =
+            await db.auth.signUp({
+                email: email,
+                password: password
+            });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.user) {
+            throw new Error(
+                "Account could not be created."
+            );
+        }
+
+        /* ================================
+           CREATE PERSONAL REFERRAL CODE
+        ================================= */
+
+        const referralCodeForUser =
+            await generateUniqueReferralCode();
+
+        /* ================================
+           CREATE PROFILE
+        ================================= */
+
+        const {
+            error: profileError
+        } =
+            await db
+                .from("profiles")
+                .upsert({
+                    id: data.user.id,
+                    full_name: name,
+                    email: email,
+                    role: "member",
+                    vip_level: 0,
+                    balance: 0,
+                    earnings: 0,
+                    referral_code:
+                        referralCodeForUser,
+                    referred_by:
+                        referredBy
+                });
+
+        if (profileError) {
+            throw profileError;
+        }
+
+        /* ================================
+           CREATE REFERRAL RECORD
+        ================================= */
+
+        if (referredBy) {
+
+            await createReferralRecord(
+                referredBy,
+                data.user.id
+            );
+        }
+
+        alert(
+            "Account created successfully."
+        );
+
+        /* ================================
+           OPEN APPLICATION
+        ================================= */
+
+        if (data.session) {
+
+            currentUser =
+                data.user;
+
+            await refreshCurrentProfile();
+
+        } else {
+
+            showAuth("login");
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Registration error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to create account."
+        );
+    }
+}
+
+
+/* =========================================================
+   REFERRAL URL
+   ========================================================= */
+
+function prepareReferralRegistration() {
+
+    const code =
+        getReferralCodeFromUrl();
+
+
+    if (!code) {
+        return;
+    }
+
+
+    const input =
+        document.getElementById(
+            "registerInviteCode"
+        );
+
+
+    /*
+     * The application uses AMEREELS as the
+     * required invitation code.
+     *
+     * Referral codes are therefore handled
+     * separately through the URL.
+     */
+
+if (input) {
+
+    input.value = code;
+
+    input.dataset.referralCode =
+        code;
+
+}
+
+}
+
+
+function getReferralCodeFromUrl() {
+
+    try {
+
+        const params =
+            new URLSearchParams(
+                window.location.search
+            );
+
+        return (
+            params.get("ref") ||
+            params.get("referral") ||
+            ""
+        ).trim();
+
+    } catch (error) {
+
+        return "";
+
+    }
+
+}
+
+
+/* =========================================================
+   UNIQUE REFERRAL CODE
+   ========================================================= */
+
+async function generateUniqueReferralCode() {
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+
+        const randomNumber =
+            Math.floor(
+                100000 +
+                Math.random() * 900000
+            );
+
+        const code =
+            "AME" + randomNumber;
+
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("profiles")
+                .select("id")
+                .eq(
+                    "referral_code",
+                    code
+                )
+                .maybeSingle();
+
+
+        if (error) {
+
+            console.warn(
+                "Referral code check:",
+                error
+            );
+
+            continue;
+
+        }
+
+
+        if (!data) {
+
+            return code;
+
+        }
+
+    }
+
+
+    return (
+        "AME" +
+        Date.now()
+            .toString()
+            .slice(-6)
+    );
+
+}
+
+
+/* =========================================================
+   CREATE REFERRAL RECORD
+   ========================================================= */
+
+async function createReferralRecord(
+    referrerId,
+    referredUserId
+) {
+
+    try {
+
+        const {
+            error
+        } =
+            await db
+                .from("referrals")
+                .insert({
+                    referrer_id: referrerId,
+                    referred_user_id: referredUserId,
+                    reward: 0,
+                    status: "pending"
+                });
+
+
+        if (error) {
+
+            console.warn(
+                "Referral record:",
+                error
+            );
+
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "Referral record error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
+async function loginUser() {
+
+    clearAuthMessage();
+
+
+    const email =
+        document.getElementById(
+            "loginEmail"
+        )?.value.trim();
+
+
+    const password =
+        document.getElementById(
+            "loginPassword"
+        )?.value;
+
+
+    if (!email || !password) {
+
+        showAuthMessage(
+            "Enter your email and password."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        showAuthMessage(
+            "Logging in...",
+            false
+        );
+
+
+        const {
+            data,
+            error
+        } =
+            await db.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        currentUser = data.user;
+
+        await loadProfile();
+
+    } catch (error) {
+
+        console.error(
+            "Login error:",
+            error
+        );
+
+        showAuthMessage(
+            error.message ||
+            "Login failed."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   CHECK EXISTING SESSION
+   ========================================================= */
+
+async function checkExistingSession() {
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db.auth.getSession();
+
+
+        if (error) {
+
+            console.error(
+                "Session error:",
+                error
+            );
+
+            return;
+
+        }
+
+
+        if (
+            data &&
+            data.session &&
+            data.session.user
+        ) {
+
+            currentUser =
+                data.session.user;
+
+            await loadProfile();
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Existing session error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD PROFILE
+   ========================================================= */
+
+async function loadProfile() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        let {
+            data: profile,
+            error
+        } =
+            await db
+                .from("profiles")
+                .select("*")
+                .eq(
+                    "id",
+                    currentUser.id
+                )
+                .maybeSingle();
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        /*
+         * Create a profile if authentication exists
+         * but the profile row does not.
+         */
+
+        if (!profile) {
+
+            const referralCode =
+                await generateUniqueReferralCode();
+
+
+            const {
+                data: newProfile,
+                error: createError
+            } =
+                await db
+                    .from("profiles")
+                    .insert({
+                        id: currentUser.id,
+                        full_name:
+                            currentUser.user_metadata
+                                ?.full_name ||
+                            "Member",
+                        email:
+                            currentUser.email ||
+                            "",
+                        username:
+                            (
+                                currentUser.email ||
+                                "member"
+                            )
+                                .split("@")[0],
+                        role: "member",
+                        vip_level: 0,
+                        balance: 0,
+                        earnings: 0,
+                        referral_code:
+                            referralCode
+                    })
+                    .select("*")
+                    .single();
+
+
+            if (createError) {
+
+                throw createError;
+
+            }
+
+
+            profile = newProfile;
+
+        }
+
+
+        currentProfile = profile;
+
+
+        /*
+         * Repair missing referral code if needed.
+         */
+
+        if (!currentProfile.referral_code) {
+
+            const newCode =
+                await generateUniqueReferralCode();
+
+
+            const {
+                data: updatedProfile
+            } =
+                await db
+                    .from("profiles")
+                    .update({
+                        referral_code: newCode
+                    })
+                    .eq(
+                        "id",
+                        currentUser.id
+                    )
+                    .select("*")
+                    .single();
+
+
+            if (updatedProfile) {
+
+                currentProfile =
+                    updatedProfile;
+
+            }
+
+        }
+
+
+        showApplication();
+
+    } catch (error) {
+
+        console.error(
+            "Profile loading error:",
+            error
+        );
+
+        showAuthMessage(
+            error.message ||
+            "Unable to load your account."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   SHOW APPLICATION
+   ========================================================= */
+
+function showApplication() {
+
+    const authScreen =
+        document.getElementById(
+            "authScreen"
+        );
+
+    const appScreen =
+        document.getElementById(
+            "appScreen"
+        );
+
+
+    if (authScreen) {
+
+        authScreen.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    if (appScreen) {
+
+        appScreen.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    updateUserInterface();
+
+    buildVipGrid();
+
+    updateVipTasks();
+
+    loadAvailableTasks();
+
+    loadMyTasks();
+
+    loadNotifications();
+
+    openPage("dashboardPage");
+
+}
+
+
+/* =========================================================
+   UPDATE USER INTERFACE
+   ========================================================= */
+
+function updateUserInterface() {
+
+    if (!currentProfile) {
+        return;
+    }
+
+
+    const name =
+        currentProfile.full_name ||
+        "Member";
+
+
+    const email =
+        currentProfile.email ||
+        currentUser?.email ||
+        "";
+
+
+    const balance =
+        Number(
+            currentProfile.balance || 0
+        );
+
+
+    const earnings =
+        Number(
+            currentProfile.earnings || 0
+        );
+
+
+    const vip =
+        Number(
+            currentProfile.vip_level || 0
+        );
+
+
+    const elements = {
+
+        topUserName: name,
+
+        welcomeName: name,
+
+        profileName: name,
+
+        profileEmail: email,
+
+        dashboardBalance:
+            money(balance),
+
+        walletBalance:
+            money(balance),
+
+        vipPageBalance:
+            money(balance),
+
+        totalEarnings:
+            money(earnings),
+
+        earningTotal:
+            money(earnings),
+
+        dashboardVip:
+            vip > 0
+                ? "VIP " + vip
+                : "None",
+
+        vipPageCurrent:
+            vip > 0
+                ? "VIP " + vip
+                : "None",
+
+        profileVip:
+            vip > 0
+                ? "VIP " + vip
+                : "None",
+
+        referralCode:
+            currentProfile.referral_code ||
+            "—"
+
+    };
+
+
+    Object.keys(elements).forEach(
+        function (id) {
+
+            const element =
+                document.getElementById(id);
+
+            if (element) {
+
+                element.textContent =
+                    elements[id];
+
+            }
+
+        }
+    );
+
+
+    const contractText =
+        document.getElementById(
+            "contractText"
+        );
+
+
+    const currentVipTitle =
+        document.getElementById(
+            "currentVipTitle"
+        );
+
+
+    if (vip > 0) {
+
+        const vipInfo =
+            VIP_LEVELS.find(
+                item =>
+                    item.level === vip
+            );
+
+
+        if (vipInfo) {
+
+            if (currentVipTitle) {
+
+                currentVipTitle.textContent =
+                    "VIP " +
+                    vip +
+                    " — " +
+                    vipInfo.task;
+
+            }
+
+
+            if (contractText) {
+
+                contractText.textContent =
+                    "Your current VIP package is active. Complete the available task to receive the configured reward.";
+
+            }
+
+        }
+
+    } else {
+
+        if (currentVipTitle) {
+
+            currentVipTitle.textContent =
+                "No VIP Activated";
+
+        }
+
+
+        if (contractText) {
+
+            contractText.textContent =
+                "Activate a VIP package to start your contract.";
+
+        }
+
+    }
+
+
+    updateReferralUI();
+
+    updateAdminVisibility();
+
+}
+
+
+/* =========================================================
+   ADMIN VISIBILITY
+   ========================================================= */
+
+function updateAdminVisibility() {
+
+    const adminCard =
+        document.getElementById(
+            "adminAccessCard"
+        );
+
+
+    const isAdmin =
+        currentProfile &&
+        String(
+            currentProfile.role || ""
+        ).toLowerCase() === "admin";
+
+
+    if (adminCard) {
+
+        if (isAdmin) {
+
+            adminCard.classList.remove(
+                "hidden"
+            );
+
+        } else {
+
+            adminCard.classList.add(
+                "hidden"
+            );
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   PAGE NAVIGATION
+   ========================================================= */
+
+function openPage(pageId) {
+
+    const pages =
+        document.querySelectorAll(
+            ".page"
+        );
+
+
+    pages.forEach(
+        function (page) {
+
+            page.classList.remove(
+                "active-page"
+            );
+
+        }
+    );
+
+
+    const target =
+        document.getElementById(pageId);
+
+
+    if (!target) {
+        return;
+    }
+
+
+    target.classList.add(
+        "active-page"
+    );
+
+
+    /*
+     * Refresh data whenever important pages open.
+     */
+
+    if (pageId === "dashboardPage") {
+
+        refreshCurrentProfile();
+
+        loadAvailableTasks();
+
+        loadMyTasks();
+
+    }
+
+
+    if (pageId === "tasksPage") {
+
+        loadAvailableTasks();
+
+        loadMyTasks();
+
+    }
+
+
+    if (pageId === "myTasksPage") {
+
+        loadMyTasks();
+
+    }
+
+
+    if (pageId === "walletPage") {
+
+        refreshCurrentProfile();
+
+    }
+
+
+    if (pageId === "withdrawPage") {
+
+        refreshCurrentProfile();
+
+    }
+        /* ================= EARNINGS ================= */
+
+    if (pageId === "earningsPage") {
+
+        refreshCurrentProfile();
+
+        loadTransactionHistory();
+
+    }
+
+    if (pageId === "referralPage") {
+
+        updateReferralUI();
+
+        loadReferralHistory();
+
+    }
+
+
+    if (pageId === "adminPage") {
+
+        loadAdminPanel();
+
+    }
+
+
+    if (pageId === "profilePage") {
+
+        refreshCurrentProfile();
+
+    }
+
+}
+
+
+/* =========================================================
+   VIP GRID
+   ========================================================= */
+
+function buildVipGrid() {
+
+    const grid =
+        document.getElementById(
+            "vipGrid"
+        );
+
+
+    if (!grid) {
+        return;
+    }
+
+
+    grid.innerHTML = "";
+
+
+    VIP_LEVELS.forEach(
+        function (vip) {
+
+            const card =
+                document.createElement(
+                    "div"
+                );
+
+
+            card.className =
+                "vip-card";
+
+
+            card.innerHTML = `
+
+                <div class="vip-card-header">
+
+                    <span>
+                        VIP ${vip.level}
+                    </span>
+
+                    <strong>
+                        ${money(vip.daily)}
+                    </strong>
+
+                </div>
+
+                <h3>
+                    ${escapeHtml(vip.task)}
+                </h3>
+
+                <p>
+                    Unlock: ${money(vip.unlock)}
+                </p>
+
+                <p>
+                    Daily Task Reward:
+                    ${money(vip.daily)}
+                </p>
+
+                <button
+                    type="button"
+                    class="main-btn"
+                    onclick="openVipModal(${vip.level})"
+                >
+                    UNLOCK VIP ${vip.level}
+                </button>
+
+            `;
+
+
+            grid.appendChild(card);
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   VIP MODAL
+   ========================================================= */
+
+function openVipModal(level) {
+
+    const vip =
+        VIP_LEVELS.find(
+            item =>
+                item.level === Number(level)
+        );
+
+
+    if (!vip) {
+        return;
+    }
+
+
+    selectedVip = vip;
+
+
+    const modal =
+        document.getElementById(
+            "vipModal"
+        );
+
+
+    const title =
+        document.getElementById(
+            "modalVipTitle"
+        );
+
+
+    const unlock =
+        document.getElementById(
+            "modalUnlockAmount"
+        );
+
+
+    const daily =
+        document.getElementById(
+            "modalDailyAmount"
+        );
+
+
+    const balance =
+        document.getElementById(
+            "modalBalance"
+        );
+
+
+    const message =
+        document.getElementById(
+            "vipModalMessage"
+        );
+
+
+    if (title) {
+
+        title.textContent =
+            "VIP " +
+            vip.level +
+            " — " +
+            vip.task;
+
+    }
+
+
+    if (unlock) {
+
+        unlock.textContent =
+            money(vip.unlock);
+
+    }
+
+
+    if (daily) {
+
+        daily.textContent =
+            money(vip.daily);
+
+    }
+
+
+    if (balance) {
+
+        balance.textContent =
+            money(
+                currentProfile?.balance || 0
+            );
+
+    }
+
+
+    if (message) {
+
+        message.textContent = "";
+
+    }
+
+
+    if (modal) {
+
+        modal.classList.remove(
+            "hidden"
+        );
+
+    }
+
+}
+
+
+function closeVipModal() {
+
+    const modal =
+        document.getElementById(
+            "vipModal"
+        );
+
+
+    if (modal) {
+
+        modal.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    selectedVip = null;
+
+}
+
+
+/* =========================================================
+   VIP ACTIVATION
+   ========================================================= */
+
+async function confirmVipUnlock() {
+
+    if (!selectedVip) {
+
+        return;
+
+    }
+
+
+    if (!currentUser || !currentProfile) {
+
+        return;
+
+    }
+
+
+    const message =
+        document.getElementById(
+            "vipModalMessage"
+        );
+
+
+    const button =
+        document.getElementById(
+            "confirmVipButton"
+        );
+
+
+    const balance =
+        Number(
+            currentProfile.balance || 0
+        );
+
+
+    if (
+        Number(
+            currentProfile.vip_level || 0
+        ) >= selectedVip.level
+    ) {
+
+        setMessage(
+            message,
+            "You already have this VIP level or a higher level.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (balance < selectedVip.unlock) {
+
+        setMessage(
+            message,
+            "Insufficient account balance for this VIP activation.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        if (button) {
+
+            button.disabled = true;
+
+            button.textContent =
+                "PROCESSING...";
+
+        }
+
+
+        /*
+         * Keep the existing pending VIP activation
+         * workflow used by the application.
+         */
+
+        const {
+            data: existing,
+            error: existingError
+        } =
+            await db
+                .from("transactions")
+                .select("id")
+                .eq(
+                    "user_id",
+                    currentUser.id
+                )
+                .eq(
+                    "type",
+                    "vip_activation"
+                )
+                .eq(
+                    "status",
+                    "pending"
+                )
+                .limit(1);
+
+
+        if (existingError) {
+
+            throw existingError;
+
+        }
+
+
+        if (
+            existing &&
+            existing.length > 0
+        ) {
+
+            throw new Error(
+                "You already have a pending VIP activation request."
+            );
+
+        }
+
+
+        const {
+            error
+        } =
+            await db
+                .from("transactions")
+                .insert({
+                    user_id: currentUser.id,
+                    type: "vip_activation",
+                    amount: selectedVip.unlock,
+                    status: "pending",
+                    reference:
+                        "VIP-" +
+                        Date.now(),
+                    description:
+                        "VIP " +
+                        selectedVip.level +
+                        " activation request"
+                });
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        setMessage(
+            message,
+            "VIP activation request submitted successfully. Please wait for Admin approval.",
+            false
+        );
+
+
+        await refreshCurrentProfile();
+
+    } catch (error) {
+
+        console.error(
+            "VIP activation:",
+            error
+        );
+
+        setMessage(
+            message,
+            error.message ||
+            "VIP activation failed.",
+            true
+        );
+
+    } finally {
+
+        if (button) {
+
+            button.disabled = false;
+
+            button.textContent =
+                "CONFIRM UNLOCK";
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   VIP TASK DISPLAY
+   ========================================================= */
+
+function updateVipTasks() {
+
+    const cards =
+        document.querySelectorAll(
+            "#taskList .vip-task"
+        );
+
+
+    const currentVip =
+        Number(
+            currentProfile?.vip_level || 0
+        );
+
+
+    cards.forEach(
+        function (card) {
+
+            const level =
+                Number(
+                    card.dataset.vip
+                );
+
+
+            const button =
+                card.querySelector(
+                    "button"
+                );
+
+
+            if (!button) {
+                return;
+            }
+
+
+            if (level === currentVip) {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "ACCEPT";
+
+                card.style.opacity = "1";
+
+            } else {
+
+                button.disabled = true;
+
+                button.textContent =
+                    level < currentVip
+                        ? "AVAILABLE ABOVE"
+                        : "VIP LOCKED";
+
+                card.style.opacity =
+                    "0.55";
+
+            }
+
+        }
+    );
+
+
+    updateAvailableTaskCount();
+
+}
+
+
+/* =========================================================
+   LOAD AVAILABLE TASKS
+   ========================================================= */
+
+async function loadAvailableTasks() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const currentVip =
+            Number(
+                currentProfile?.vip_level || 0
+            );
+
+
+        if (!currentVip) {
+
+            updateAvailableTaskCount();
+
+            return;
+
+        }
+
+
+        /*
+         * Correct schema:
+         * tasks.status, NOT tasks.active.
+         */
+
+        const {
+            data: tasks,
+            error
+        } =
+            await db
+                .from("tasks")
+                .select("*")
+                .eq(
+                    "vip_level",
+                    currentVip
+                )
+                .eq(
+                    "status",
+                    "active"
+                )
+                .eq(
+                    "task_date",
+                    new Date()
+                        .toISOString()
+                        .slice(0, 10)
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            console.warn(
+                "Available tasks:",
+                error
+            );
+
+            updateAvailableTaskCount();
+
+            return;
+
+        }
+
+
+        updateAvailableTaskCount(
+            tasks?.length || 0
+        );
+
+
+        /*
+         * Static task cards remain the visual interface.
+         * Database tasks are used for secure task acceptance.
+         */
+
+        updateVipTasks();
+
+    } catch (error) {
+
+        console.error(
+            "Task loading error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   ACCEPT VIP TASK
+   ========================================================= */
+
+async function acceptVipTask(
+    vipLevel,
+    amount,
+    title
+) {
+
+    if (!currentUser) {
+
+        alert(
+            "Please login first."
+        );
+
+        return;
+
+    }
+
+
+    const currentVip =
+        Number(
+            currentProfile?.vip_level || 0
+        );
+
+
+    if (
+        currentVip !== Number(vipLevel)
+    ) {
+
+        alert(
+            "This task is not available for your current VIP level."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        /*
+         * Find today's active database task.
+         */
+
+        const today =
+            new Date()
+                .toISOString()
+                .slice(0, 10);
+
+
+        const {
+            data: tasks,
+            error
+        } =
+            await db
+                .from("tasks")
+                .select("*")
+                .eq(
+                    "vip_level",
+                    Number(vipLevel)
+                )
+                .eq(
+                    "status",
+                    "active"
+                )
+                .eq(
+                    "task_date",
+                    today
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                )
+                .limit(1);
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        if (
+            !tasks ||
+            tasks.length === 0
+        ) {
+
+            alert(
+                "No active task has been published for your VIP level today."
+            );
+
+            return;
+
+        }
+
+
+        const task =
+            tasks[0];
+
+
+        await acceptDatabaseTask(
+            task.id
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Accept VIP task:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to accept task."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   ACCEPT DATABASE TASK
+   ========================================================= */
+
+async function acceptDatabaseTask(
+    taskId
+) {
+
+    if (!currentUser) {
+
+        alert(
+            "Please login first."
+        );
+
+        return;
+
+    }
+
+
+    if (!taskId) {
+
+        alert(
+            "Task ID is missing."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        /*
+         * Secure server-side RPC.
+         *
+         * This replaces the old direct INSERT
+         * into user_tasks.
+         */
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "accept_task",
+                {
+                    p_task_id: taskId
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        let userTaskId = null;
+
+
+        if (data) {
+
+            if (Array.isArray(data)) {
+
+                userTaskId =
+                    data[0]?.user_task_id ||
+                    data[0]?.id ||
+                    null;
+
+            } else {
+
+                userTaskId =
+                    data.user_task_id ||
+                    data.id ||
+                    null;
+
+            }
+
+        }
+
+
+        alert(
+            "Task accepted successfully. Complete it to receive your reward."
+        );
+
+
+        await loadMyTasks();
+
+        await refreshCurrentProfile();
+
+        openPage("myTasksPage");
+
+
+        /*
+         * If the RPC returned the ID,
+         * scroll to the task area.
+         */
+
+        if (userTaskId) {
+
+            const element =
+                document.getElementById(
+                    "myTasksList"
+                );
+
+            if (element) {
+
+                element.scrollIntoView({
+                    behavior: "smooth"
+                });
+
+            }
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Accept task error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to accept this task."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD MY TASKS
+   ========================================================= */
+
+async function loadMyTasks() {
+
+    const list =
+        document.getElementById(
+            "myTasksList"
+        );
+
+
+    if (!list || !currentUser) {
+        return;
+    }
+
+
+    try {
+
+        /*
+         * Secure RPC returns task names and status.
+         */
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "get_my_task_history"
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        const tasks =
+            data || [];
+
+
+        const sortedTasks =
+            tasks.sort(
+                function (a, b) {
+
+                    return new Date(
+                        b.accepted_at ||
+                        b.created_at ||
+                        0
+                    ) -
+                    new Date(
+                        a.accepted_at ||
+                        a.created_at ||
+                        0
+                    );
+
+                }
+            );
+
+
+        list.innerHTML = "";
+
+
+        if (sortedTasks.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-box">
+                    No tasks accepted yet.
+                </div>
+            `;
+
+            setText(
+                "myTaskCount",
+                "0"
+            );
+
+            return;
+
+        }
+
+
+        sortedTasks.forEach(
+            function (item) {
+
+                list.appendChild(
+                    createMyTaskCard(item)
+                );
+
+            }
+        );
+
+
+        setText(
+            "myTaskCount",
+            String(
+                sortedTasks.length
+            )
+        );
+
+    } catch (error) {
+
+        console.error(
+            "My tasks error:",
+            error
+        );
+
+
+        list.innerHTML = `
+            <div class="empty-box">
+                Unable to load your tasks.
+            </div>
+        `;
+
+    }
+
+}
+
+
+/* =========================================================
+   CREATE MY TASK CARD
+   ========================================================= */
+
+function createMyTaskCard(item) {
+
+    const card =
+        document.createElement(
+            "div"
+        );
+
+
+    card.className =
+        "task-card";
+
+
+    const status =
+        String(
+            item.task_status ||
+            item.status ||
+            "accepted"
+        ).toLowerCase();
+
+
+    let statusLabel =
+        status.toUpperCase();
+
+
+    let actionHtml = "";
+
+
+    if (
+        status === "accepted" ||
+        status === "pending"
+    ) {
+
+        actionHtml = `
+            <button
+                type="button"
+                class="main-btn"
+                onclick="completeMyTask('${escapeAttribute(item.user_task_id)}')"
+            >
+                COMPLETE TASK
+            </button>
+        `;
+
+    } else if (
+        status === "completed"
+    ) {
+
+        statusLabel =
+            "COMPLETED";
+
+        actionHtml = `
+            <span>
+                ✓ Reward Credited
+            </span>
+        `;
+
+    } else if (
+        status === "rejected"
+    ) {
+
+        actionHtml = `
+            <span>
+                Rejected
+            </span>
+        `;
+
+    }
+
+
+    card.innerHTML = `
+
+        <div>
+
+            <span class="small-label">
+                ${escapeHtml(
+                    formatDate(
+                        item.task_date
+                    )
+                )}
+            </span>
+
+            <h3>
+                ${escapeHtml(
+                    item.title ||
+                    "Daily Task"
+                )}
+            </h3>
+
+            <p>
+                ${escapeHtml(
+                    item.description ||
+                    "Complete this task to receive the configured reward."
+                )}
+            </p>
+
+            <small>
+                Status:
+                <strong>
+                    ${escapeHtml(statusLabel)}
+                </strong>
+            </small>
+
+        </div>
+
+
+        <div class="task-right">
+
+            <strong>
+                ${money(
+                    Number(
+                        item.reward || 0
+                    )
+                )}
+            </strong>
+
+            ${actionHtml}
+
+        </div>
+
+    `;
+
+
+    return card;
+
+}
+
+
+/* =========================================================
+   COMPLETE TASK
+   ========================================================= */
+ async function completeMyTask(userTaskId) {
+
+    if (!currentUser) {
+        alert("Please login first.");
+        return;
+    }
+
+    if (!userTaskId) {
+        alert("Task information is missing.");
+        return;
+    }
+
+    const confirmed = window.confirm(
+        "Complete this task and receive the configured reward?"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const {
+            data,
+            error
+        } = await db.rpc(
+            "complete_task",
+            {
+                p_user_task_id: userTaskId
+            }
+        );
+
+        if (error) {
+            throw error;
+        }
+
+        /*
+         * The RPC returns success:false when
+         * the server rejects the completion.
+         */
+        let result = data;
+
+        if (Array.isArray(data)) {
+            result = data[0] || {};
+        }
+
+        if (
+            result &&
+            result.success === false
+        ) {
+
+            throw new Error(
+                result.error_message ||
+                result.message ||
+                "Task could not be completed."
+            );
+        }
+
+        const reward =
+            result?.reward ??
+            result?.amount ??
+            null;
+
+        if (reward !== null) {
+
+            alert(
+                "Task completed successfully. Reward credited: " +
+                money(Number(reward))
+            );
+
+        } else {
+
+            alert(
+                "Task completed successfully. Your reward has been credited."
+            );
+
+        }
+
+        await refreshCurrentProfile();
+
+        await loadMyTasks();
+
+        await loadAvailableTasks();
+
+        openPage("myTasksPage");
+
+    } catch (error) {
+
+        console.error(
+            "Complete task error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to complete task."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   UPDATE AVAILABLE TASK COUNT
+   ========================================================= */
+
+function updateAvailableTaskCount(
+    databaseCount = null
+) {
+
+    const element =
+        document.getElementById(
+            "availableTaskCount"
+        );
+
+
+    if (!element) {
+        return;
+    }
+
+
+    if (databaseCount !== null) {
+
+        element.textContent =
+            String(databaseCount);
+
+        return;
+
+    }
+
+
+    const vip =
+        Number(
+            currentProfile?.vip_level || 0
+        );
+
+
+    element.textContent =
+        vip > 0
+            ? "1"
+            : "0";
+
+}
+
+
+/* =========================================================
+   REFRESH CURRENT PROFILE
+   ========================================================= */
+
+async function refreshCurrentProfile() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("profiles")
+                .select("*")
+                .eq(
+                    "id",
+                    currentUser.id
+                )
+                .single();
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        currentProfile = data;
+
+        updateUserInterface();
+
+        updateVipTasks();
+
+    } catch (error) {
+
+        console.error(
+            "Profile refresh:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   REFERRAL UI
+   ========================================================= */
+
+function updateReferralUI() {
+
+    if (!currentProfile) {
+        return;
+    }
+
+
+    const code =
+        currentProfile.referral_code ||
+        "";
+
+
+    setText(
+        "referralCode",
+        code || "—"
+    );
+
+
+    const link =
+        document.getElementById(
+            "referralLink"
+        );
+
+
+    if (link && code) {
+
+        const url =
+            window.location.origin +
+            window.location.pathname +
+            "?ref=" +
+            encodeURIComponent(code);
+
+
+        link.value = url;
+
+    }
+
+}
+
+
+/* =========================================================
+   COPY REFERRAL CODE
+   ========================================================= */
+
+async function copyReferralCode() {
+
+    const code =
+        currentProfile?.referral_code;
+
+
+    if (!code) {
+
+        alert(
+            "Referral code is not available."
+        );
+
+        return;
+
+    }
+
+
+    await copyText(code);
+
+
+    alert(
+        "Referral code copied."
+    );
+
+}
+
+
+/* =========================================================
+   COPY REFERRAL LINK
+   ========================================================= */
+
+async function copyReferralLink() {
+
+    const input =
+        document.getElementById(
+            "referralLink"
+        );
+
+
+    if (!input || !input.value) {
+
+        alert(
+            "Referral link is not available."
+        );
+
+        return;
+
+    }
+
+
+    await copyText(
+        input.value
+    );
+
+
+    alert(
+        "Referral link copied."
+    );
+
+}
+
+
+/* =========================================================
+   SHARE REFERRAL
+   ========================================================= */
+
+async function shareReferral() {
+
+    const code =
+        currentProfile?.referral_code;
+
+
+    if (!code) {
+
+        alert(
+            "Referral information is not available."
+        );
+
+        return;
+
+    }
+
+
+    const link =
+        window.location.origin +
+        window.location.pathname +
+        "?ref=" +
+        encodeURIComponent(code);
+
+
+    const message =
+        "Join AME REELS using my referral link:\n\n" +
+        link;
+
+
+    try {
+
+        if (
+            navigator.share
+        ) {
+
+            await navigator.share({
+                title: "AME REELS",
+                text: message,
+                url: link
+            });
+
+        } else {
+
+            await copyText(
+                link
+            );
+
+            alert(
+                "Referral link copied. You can now share it."
+            );
+
+        }
+
+    } catch (error) {
+
+        console.log(
+            "Share cancelled:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   REFERRAL HISTORY
+   ========================================================= */
+
+async function loadReferralHistory() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("referrals")
+                .select("*")
+                .or(
+                    "referrer_id.eq." +
+                    currentUser.id +
+                    ",referred_user_id.eq." +
+                    currentUser.id
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            console.warn(
+                "Referral history:",
+                error
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * The existing HTML does not contain
+         * a dedicated referral history element.
+         *
+         * Data remains available in Supabase.
+         */
+
+        console.log(
+            "Referral history:",
+            data || []
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Referral history error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   NOTIFICATIONS
+   ========================================================= */
+
+async function loadNotifications() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("notifications")
+                .select("*")
+                .eq(
+                    "user_id",
+                    currentUser.id
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                )
+                .limit(20);
+
+
+        if (error) {
+
+            console.warn(
+                "Notifications:",
+                error
+            );
+
+            return;
+
+        }
+
+
+        console.log(
+            "AME REELS notifications:",
+            data || []
+        );
+
+
+        /*
+         * No notification panel currently exists
+         * in index.html, so notifications are kept
+         * ready for the UI.
+         */
+
+    } catch (error) {
+
+        console.warn(
+            "Notification loading:",
+            error
+        );
+
+    }
+
+}
+
+/* =========================================================
+   RECHARGE DEPOSIT ADDRESSES
+   ========================================================= */
+
+const RECHARGE_ADDRESSES = {
+
+    "USDT — TRC20":
+        "TDivZhsq2g2is5GGouYE2iXfkJRwZLBxkY",
+
+    "USDT — ERC20":
+        "0xaea9be302fd28d897cdf1cad3d78326c65126c72",
+
+    "USDT — BEP-20":
+        "0xaea9be302fd28d897cdf1cad3d78326c65126c72",
+
+    "USDC — ERC20":
+        "0xaea9be302fd28d897cdf1cad3d78326c65126c72",
+
+    "USDC — Polygon":
+        "0xaea9be302fd28d897cdf1cad3d78326c65126c72"
+
 };
 
-document.addEventListener("DOMContentLoaded",()=>{setupAuth();buildVipGrid();prepareReferralRegistration();checkExistingSession();updateRechargeAddress();});
-function $(id){return document.getElementById(id)}
-function showAuth(mode="login"){
- $("authScreen").classList.remove("hidden");$("appScreen").classList.add("hidden");
- $("loginForm").classList.toggle("hidden",mode!=="login");$("registerForm").classList.toggle("hidden",mode!=="register");
- $("loginTab").classList.toggle("active",mode==="login");$("registerTab").classList.toggle("active",mode==="register");
+
+/* =========================================================
+   UPDATE RECHARGE ADDRESS
+   ========================================================= */
+
+function updateRechargeAddress() {
+
+    const network =
+        document.getElementById(
+            "rechargeNetwork"
+        )?.value;
+
+
+    const addressInput =
+        document.getElementById(
+            "rechargeAddress"
+        );
+
+
+    if (!network || !addressInput) {
+        return;
+    }
+
+
+    const address =
+        RECHARGE_ADDRESSES[network] || "";
+
+
+    addressInput.value =
+        address;
+
 }
-function setupAuth(){
- db.auth.onAuthStateChange((event,session)=>{if(session?.user){setTimeout(()=>loadProfile(session.user),0)}});
+
+
+/* =========================================================
+   COPY RECHARGE ADDRESS
+   ========================================================= */
+
+async function copyRechargeAddress() {
+
+    const address =
+        document.getElementById(
+            "rechargeAddress"
+        )?.value;
+
+
+    if (!address) {
+
+        alert(
+            "Deposit address is not available."
+        );
+
+        return;
+
+    }
+
+
+    const copied =
+        await copyText(address);
+
+
+    if (copied) {
+
+        alert(
+            "Deposit address copied successfully."
+        );
+
+    } else {
+
+        alert(
+            "Unable to copy the address."
+        );
+
+    }
+
 }
-function prepareReferralRegistration(){
- const p=new URLSearchParams(location.search);const ref=p.get("ref")||p.get("referral");
- if(ref){$("registerReferral").value=ref;$("registerNotice").textContent="Referral code detected: "+ref;$("registerNotice").classList.remove("hidden")}
+/* =========================================================
+   RECHARGE
+   ========================================================= */
+
+async function requestRecharge() {
+
+    if (!currentUser) {
+
+        alert(
+            "Please login before requesting a recharge."
+        );
+
+        return;
+
+    }
+
+
+    const amount =
+        Number(
+            document.getElementById(
+                "rechargeAmount"
+            )?.value
+        );
+
+
+    const network =
+        document.getElementById(
+            "rechargeNetwork"
+        )?.value;
+
+
+    const address =
+        document.getElementById(
+            "rechargeAddress"
+        )?.value;
+
+
+    const message =
+        document.getElementById(
+            "rechargeMessage"
+        );
+
+
+    if (!amount || amount <= 0) {
+
+        setMessage(
+            message,
+            "Enter a valid recharge amount.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (!network) {
+
+        setMessage(
+            message,
+            "Please select a recharge network.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (!address) {
+
+        setMessage(
+            message,
+            "Recharge deposit address is not available.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        setMessage(
+            message,
+            "Submitting recharge request...",
+            false
+        );
+
+
+        const reference =
+            "RECHARGE-" +
+            Date.now();
+
+
+        const {
+            error
+        } =
+            await db
+                .from("transactions")
+                .insert({
+                    user_id:
+                        currentUser.id,
+
+                    type:
+                        "recharge",
+
+                    amount:
+                        amount,
+
+                    status:
+                        "pending",
+
+                    reference:
+                        reference,
+
+                    description:
+                        "Recharge request via " +
+                        network +
+                        " | Deposit Address: " +
+                        address
+                });
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        setMessage(
+            message,
+            "Recharge request submitted successfully. Please wait for Admin approval.",
+            false
+        );
+
+
+        const amountInput =
+            document.getElementById(
+                "rechargeAmount"
+            );
+
+
+        if (amountInput) {
+
+            amountInput.value = "";
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Recharge error:",
+            error
+        );
+
+
+        setMessage(
+            message,
+            error.message ||
+            "Recharge request failed.",
+            true
+        );
+
+    }
+
 }
-async function checkExistingSession(){
- const {data}=await db.auth.getSession();if(data.session) await loadProfile(data.session.user); else showAuth("login");
+/* =========================================================
+   WITHDRAWAL CALCULATOR
+   ========================================================= */
+
+function calculateWithdrawal() {
+
+    const amount =
+        Number(
+            document.getElementById(
+                "withdrawAmount"
+            )?.value
+        ) || 0;
+
+
+    const fee =
+        amount *
+        WITHDRAWAL_FEE_RATE;
+
+
+    const net =
+        amount -
+        fee;
+
+
+    setText(
+        "grossAmount",
+        money(amount)
+    );
+
+
+    setText(
+        "withdrawFee",
+        money(fee)
+    );
+
+
+    setText(
+        "netAmount",
+        money(
+            Math.max(net, 0)
+        )
+    );
+
 }
-async function registerUser(e){
- e.preventDefault();clearMessage("authMessage");
- const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,invite=$("invitationCode").value.trim(),ref=($("registerReferral").value||"").trim();
- if(invite!==INVITATION_CODE)return setMessage("authMessage","Invalid invitation code.");
- if(password.length<6)return setMessage("authMessage","Password must contain at least 6 characters.");
- let referredBy=null;
- if(ref){try{const r=await db.rpc("get_referrer_by_code",{p_referral_code:ref});if(!r.error&&r.data)referredBy=Array.isArray(r.data)?r.data[0]?.id:r.data.id;}catch(_){}}
- const {data,error}=await db.auth.signUp({email,password});
- if(error)return setMessage("authMessage",error.message);
- const user=data.user;if(!user)return setMessage("authMessage","Account created. Check your email to continue.");
- const referralCode=makeReferralCode();
- const profile={id:user.id,full_name:name,email,username:name,role:"member",vip_level:0,balance:0,earnings:0,referral_code:referralCode,referred_by:referredBy};
- const up=await db.from("profiles").upsert(profile,{onConflict:"id"});
- if(up.error)return setMessage("authMessage","Account created, but profile setup needs attention: "+up.error.message);
- if(referredBy)await db.from("referrals").insert({referrer_id:referredBy,referred_user_id:user.id,status:"pending",reward:0});
- setMessage("authMessage","Account created. Check your email if confirmation is required, then login.","success");
- showAuth("login");
+
+
+/* =========================================================
+   WITHDRAWAL
+   ========================================================= */
+
+async function requestWithdrawal() {
+
+    const amount =
+        Number(
+            document.getElementById(
+                "withdrawAmount"
+            )?.value
+        );
+
+
+    const network =
+        document.getElementById(
+            "withdrawNetwork"
+        )?.value;
+
+
+    const wallet =
+        document.getElementById(
+            "withdrawWallet"
+        )?.value.trim();
+
+
+    const message =
+        document.getElementById(
+            "withdrawMessage"
+        );
+
+
+    if (!amount || amount < WITHDRAWAL_MINIMUM) {
+
+        setMessage(
+            message,
+            "Minimum withdrawal is $2.00.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (!network) {
+
+        setMessage(
+            message,
+            "Select a network.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if (!wallet) {
+
+        setMessage(
+            message,
+            "Enter your receiving wallet address.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        setMessage(
+            message,
+            "Submitting withdrawal request...",
+            false
+        );
+
+
+        /*
+         * Secure server-side withdrawal RPC.
+         *
+         * The server calculates the real fee,
+         * checks balance and deducts funds.
+         */
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "request_withdrawal",
+                {
+                    p_amount: amount,
+                    p_network: network,
+                    p_wallet_address: wallet
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        let result = data;
+
+
+        if (Array.isArray(data)) {
+
+            result =
+                data[0] || {};
+
+        }
+
+
+        setMessage(
+            message,
+            "Withdrawal request submitted successfully. Net amount: " +
+            money(
+                Number(
+                    result?.net_amount ||
+                    amount *
+                    (1 - WITHDRAWAL_FEE_RATE)
+                )
+            ),
+            false
+        );
+
+
+        const amountInput =
+            document.getElementById(
+                "withdrawAmount"
+            );
+
+
+        const walletInput =
+            document.getElementById(
+                "withdrawWallet"
+            );
+
+
+        if (amountInput) {
+
+            amountInput.value = "";
+
+        }
+
+
+        if (walletInput) {
+
+            walletInput.value = "";
+
+        }
+
+
+        calculateWithdrawal();
+
+
+        await refreshCurrentProfile();
+
+    } catch (error) {
+
+        console.error(
+            "Withdrawal error:",
+            error
+        );
+
+        setMessage(
+            message,
+            error.message ||
+            "Withdrawal request failed.",
+            true
+        );
+
+    }
+
 }
-async function loginUser(e){
- e.preventDefault();clearMessage("authMessage");
- const {data,error}=await db.auth.signInWithPassword({email:$("loginEmail").value.trim(),password:$("loginPassword").value});
- if(error)return setMessage("authMessage",error.message);
- await loadProfile(data.user);
+
+
+/* =========================================================
+   ADMIN CHECK
+   ========================================================= */
+
+function isCurrentUserAdmin() {
+
+    return (
+        currentProfile &&
+        String(
+            currentProfile.role || ""
+        ).toLowerCase() === "admin"
+    );
+
 }
-async function resetPassword(){
- const email=prompt("Enter your account email:");
- if(!email)return;
- const {error}=await db.auth.resetPasswordForEmail(email.trim(),{redirectTo:location.origin+location.pathname});
- setMessage("authMessage",error?error.message:"Password reset email sent.","success");
+
+
+/* =========================================================
+   OPEN ADMIN PANEL
+   ========================================================= */
+
+function openAdminPanel() {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    openPage(
+        "adminPage"
+    );
+
 }
-async function loadProfile(user){
- currentUser=user;
- let {data,error}=await db.from("profiles").select("*").eq("id",user.id).maybeSingle();
- if(error)return setMessage("authMessage",error.message);
- if(!data){
-   const p={id:user.id,full_name:user.email?.split("@")[0]||"Member",email:user.email,username:user.email?.split("@")[0]||"Member",role:"member",vip_level:0,balance:0,earnings:0,referral_code:makeReferralCode()};
-   const r=await db.from("profiles").insert(p).select().single();if(r.error)return setMessage("authMessage",r.error.message);data=r.data;
- }
- currentProfile=data;showApplication();
+
+
+/* =========================================================
+   ADMIN PANEL
+   ========================================================= */
+
+async function loadAdminPanel() {
+
+    if (!isCurrentUserAdmin()) {
+
+        return;
+
+    }
+
+
+    await Promise.allSettled([
+        loadAdminSummary(),
+        loadAdminRechargeRequests(),
+        loadAdminVipRequests(),
+        loadAdminWithdrawalRequests(),
+        loadAdminUsers()
+    ]);
+
 }
-function showApplication(){
- $("authScreen").classList.add("hidden");$("appScreen").classList.remove("hidden");
- updateUserInterface();openPage("dashboardPage");loadDashboardData();showLoginOffer();
+
+
+/* =========================================================
+   ADMIN SUMMARY
+   ========================================================= */
+
+async function loadAdminSummary() {
+
+    if (!isCurrentUserAdmin()) {
+        return;
+    }
+
+
+    try {
+
+        const [
+            usersResult,
+            rechargeResult,
+            vipResult,
+            withdrawalResult
+        ] =
+            await Promise.all([
+
+                db
+                    .from("profiles")
+                    .select(
+                        "id",
+                        {
+                            count: "exact",
+                            head: true
+                        }
+                    ),
+
+                db
+                    .from("transactions")
+                    .select(
+                        "id",
+                        {
+                            count: "exact",
+                            head: true
+                        }
+                    )
+                    .eq(
+                        "type",
+                        "recharge"
+                    )
+                    .eq(
+                        "status",
+                        "pending"
+                    ),
+
+                db
+                    .from("transactions")
+                    .select(
+                        "id",
+                        {
+                            count: "exact",
+                            head: true
+                        }
+                    )
+                    .eq(
+                        "type",
+                        "vip_activation"
+                    )
+                    .eq(
+                        "status",
+                        "pending"
+                    ),
+
+                db
+                    .from("withdrawals")
+                    .select(
+                        "id",
+                        {
+                            count: "exact",
+                            head: true
+                        }
+                    )
+                    .eq(
+                        "status",
+                        "pending"
+                    )
+
+            ]);
+
+
+        setText(
+            "adminUserCount",
+            String(
+                usersResult.count || 0
+            )
+        );
+
+
+        setText(
+            "adminRechargeCount",
+            String(
+                rechargeResult.count || 0
+            )
+        );
+
+
+        setText(
+            "adminVipCount",
+            String(
+                vipResult.count || 0
+            )
+        );
+
+
+        setText(
+            "adminWithdrawalCount",
+            String(
+                withdrawalResult.count || 0
+            )
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Admin summary:",
+            error
+        );
+
+    }
+
 }
-function updateUserInterface(){
- const name=currentProfile?.full_name||currentProfile?.username||"Member",vip=Number(currentProfile?.vip_level||0);
- $("topUsername").textContent=name;$("welcomeName").textContent=name;
- $("dashboardVip").textContent="VIP "+vip;$("dashboardVipStat").textContent="VIP "+vip;
- $("vipCurrentLevel").textContent="VIP "+vip;$("profileVip").textContent="VIP "+vip;
- $("profileName").textContent=name;$("profileEmail").textContent=currentProfile?.email||currentUser?.email||"-";
- $("profileBalance").textContent=money(currentProfile?.balance);$("profileEarnings").textContent=money(currentProfile?.earnings);
- $("dashboardEarnings").textContent=money(currentProfile?.earnings);$("earningTotal").textContent=money(currentProfile?.earnings);
- $("myReferralCode").textContent=currentProfile?.referral_code||"AME000001";
- $("referralLink").value=location.origin+location.pathname+"?ref="+encodeURIComponent(currentProfile?.referral_code||"");
- const admin=String(currentProfile?.role||"").toLowerCase()==="admin";
- $("adminMenuButton").classList.toggle("hidden",!admin);
- if(admin)loadAdminPanel();
- loadSavedWithdrawalAddress();
+
+
+/* =========================================================
+   ADMIN RECHARGE REQUESTS
+   ========================================================= */
+
+async function loadAdminRechargeRequests() {
+
+    const list =
+        document.getElementById(
+            "adminRechargeList"
+        );
+
+
+    if (!list || !isCurrentUserAdmin()) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("transactions")
+                .select("*")
+                .eq(
+                    "type",
+                    "recharge"
+                )
+                .eq(
+                    "status",
+                    "pending"
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        list.innerHTML = "";
+
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-box">
+                    No pending recharge requests.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        data.forEach(
+            function (item) {
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "task-card";
+
+
+                card.innerHTML = `
+
+                    <div>
+
+                        <span class="small-label">
+                            RECHARGE REQUEST
+                        </span>
+
+                        <h3>
+                            ${money(
+                                Number(
+                                    item.amount || 0
+                                )
+                            )}
+                        </h3>
+
+                        <p>
+                            ${escapeHtml(
+                                item.description ||
+                                "Recharge request"
+                            )}
+                        </p>
+
+                        <small>
+                            ${escapeHtml(
+                                formatDate(
+                                    item.created_at
+                                )
+                            )}
+                        </small>
+
+                    </div>
+
+                    <div class="task-right">
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="approveRecharge('${escapeAttribute(item.id)}')"
+                        >
+                            APPROVE
+                        </button>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="rejectRecharge('${escapeAttribute(item.id)}')"
+                        >
+                            REJECT
+                        </button>
+
+                    </div>
+
+                `;
+
+
+                list.appendChild(card);
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Admin recharge requests:",
+            error
+        );
+
+
+        list.innerHTML = `
+            <div class="empty-box">
+                Unable to load recharge requests.
+            </div>
+        `;
+
+    }
+
 }
-function showLoginOffer(){if(!sessionStorage.getItem("ame_offer_seen")){$("loginOffer").classList.remove("hidden");sessionStorage.setItem("ame_offer_seen","1")}}
-function openPage(id){
- document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));const page=$(id);if(!page)return;
- page.classList.add("active");
- document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
- if(id==="dashboardPage")loadDashboardData();
- if(id==="tasksPage"){loadAvailableTasks();loadMyTasks()}
- if(id==="earningsPage")loadEarningsHistory();
- if(id==="rechargePage"){updateRechargeAddress();loadTransactionHistory("rechargeHistory","recharge")}
- if(id==="withdrawPage")loadWithdrawalHistory();
- if(id==="referralPage")loadReferralHistory();
- if(id==="teamPage")loadTeamReport();
- if(id==="positionPage")loadAgentPosition();
- if(id==="investmentPage")loadInvestmentHistory();
- stopSectionMusic();
- window.scrollTo({top:0,behavior:"smooth"});
+
+
+/* =========================================================
+   ADMIN VIP REQUESTS
+   ========================================================= */
+
+async function loadAdminVipRequests() {
+
+    const list =
+        document.getElementById(
+            "adminVipList"
+        );
+
+
+    if (!list || !isCurrentUserAdmin()) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("transactions")
+                .select("*")
+                .eq(
+                    "type",
+                    "vip_activation"
+                )
+                .eq(
+                    "status",
+                    "pending"
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        list.innerHTML = "";
+
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-box">
+                    No pending VIP activation requests.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        data.forEach(
+            function (item) {
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "task-card";
+
+
+                card.innerHTML = `
+
+                    <div>
+
+                        <span class="small-label">
+                            VIP ACTIVATION
+                        </span>
+
+                        <h3>
+                            ${money(
+                                Number(
+                                    item.amount || 0
+                                )
+                            )}
+                        </h3>
+
+                        <p>
+                            ${escapeHtml(
+                                item.description ||
+                                "VIP activation request"
+                            )}
+                        </p>
+
+                        <small>
+                            ${escapeHtml(
+                                formatDate(
+                                    item.created_at
+                                )
+                            )}
+                        </small>
+
+                    </div>
+
+                    <div class="task-right">
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="approveVip('${escapeAttribute(item.id)}')"
+                        >
+                            APPROVE
+                        </button>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="rejectVip('${escapeAttribute(item.id)}')"
+                        >
+                            REJECT
+                        </button>
+
+                    </div>
+
+                `;
+
+
+                list.appendChild(card);
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Admin VIP requests:",
+            error
+        );
+
+
+        list.innerHTML = `
+            <div class="empty-box">
+                Unable to load VIP requests.
+            </div>
+        `;
+
+    }
+
 }
-async function loadDashboardData(){
- await updateAvailableTaskCount();await loadMyTaskCount();await loadNotifications();
+
+
+/* =========================================================
+   ADMIN WITHDRAWAL REQUESTS
+   ========================================================= */
+
+async function loadAdminWithdrawalRequests() {
+
+    const list =
+        document.getElementById(
+            "adminWithdrawalList"
+        );
+
+
+    if (!list || !isCurrentUserAdmin()) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("withdrawals")
+                .select("*")
+                .eq(
+                    "status",
+                    "pending"
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        list.innerHTML = "";
+
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-box">
+                    No pending withdrawal requests.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        data.forEach(
+            function (item) {
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "task-card";
+
+
+                card.innerHTML = `
+
+                    <div>
+
+                        <span class="small-label">
+                            WITHDRAWAL
+                        </span>
+
+                        <h3>
+                            ${money(
+                                Number(
+                                    item.amount || 0
+                                )
+                            )}
+                        </h3>
+
+                        <p>
+                            Network:
+                            ${escapeHtml(
+                                item.network ||
+                                "—"
+                            )}
+                        </p>
+
+                        <p>
+                            Wallet:
+                            ${escapeHtml(
+                                item.wallet_address ||
+                                "—"
+                            )}
+                        </p>
+
+                        <small>
+                            Net:
+                            ${money(
+                                Number(
+                                    item.net_amount || 0
+                                )
+                            )}
+                            <br>
+                            ${escapeHtml(
+                                formatDate(
+                                    item.created_at
+                                )
+                            )}
+                        </small>
+
+                    </div>
+
+                    <div class="task-right">
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="approveWithdrawal('${escapeAttribute(item.id)}')"
+                        >
+                            APPROVE
+                        </button>
+
+                        <button
+                            type="button"
+                            class="main-btn"
+                            onclick="rejectWithdrawal('${escapeAttribute(item.id)}')"
+                        >
+                            REJECT
+                        </button>
+
+                    </div>
+
+                `;
+
+
+                list.appendChild(card);
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Admin withdrawals:",
+            error
+        );
+
+
+        list.innerHTML = `
+            <div class="empty-box">
+                Unable to load withdrawal requests.
+            </div>
+        `;
+
+    }
+
 }
-async function updateAvailableTaskCount(){
- const vip=Number(currentProfile?.vip_level||0);let count=vip?1:0;
- const {count:c,error}=await db.from("user_tasks").select("*",{count:"exact",head:true}).eq("user_id",currentUser.id).eq("status","available");
- if(!error&&typeof c==="number")count=Math.max(count,c);
- $("availableTaskCount").textContent=count;
+
+
+/* =========================================================
+   ADMIN USERS
+   ========================================================= */
+
+async function loadAdminUsers() {
+
+    const list =
+        document.getElementById(
+            "adminUsersList"
+        );
+
+
+    if (!list || !isCurrentUserAdmin()) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db
+                .from("profiles")
+                .select(
+                    "id,full_name,email,username,role,vip_level,balance,earnings,created_at"
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        list.innerHTML = "";
+
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-box">
+                    No users found.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        data.forEach(
+            function (user) {
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "task-card";
+
+
+                card.innerHTML = `
+
+                    <div>
+
+                        <span class="small-label">
+                            ${escapeHtml(
+                                String(
+                                    user.role ||
+                                    "member"
+                                ).toUpperCase()
+                            )}
+                        </span>
+
+                        <h3>
+                            ${escapeHtml(
+                                user.full_name ||
+                                "Member"
+                            )}
+                        </h3>
+
+                        <p>
+                            ${escapeHtml(
+                                user.email ||
+                                ""
+                            )}
+                        </p>
+
+                        <small>
+                            VIP:
+                            ${Number(
+                                user.vip_level || 0
+                            )}
+
+                            <br>
+
+                            Balance:
+                            ${money(
+                                Number(
+                                    user.balance || 0
+                                )
+                            )}
+
+                            <br>
+
+                            Earnings:
+                            ${money(
+                                Number(
+                                    user.earnings || 0
+                                )
+                            )}
+                        </small>
+
+                    </div>
+
+                `;
+
+
+                list.appendChild(card);
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Admin users:",
+            error
+        );
+
+
+        list.innerHTML = `
+            <div class="empty-box">
+                Unable to load users.
+            </div>
+        `;
+
+    }
+
 }
-async function loadMyTaskCount(){
- const {count,error}=await db.from("user_tasks").select("*",{count:"exact",head:true}).eq("user_id",currentUser.id);
- $("myTaskCount").textContent=!error&&typeof count==="number"?count:0;
+
+
+/* =========================================================
+   ADMIN APPROVE RECHARGE
+   ========================================================= */
+
+async function approveRecharge(
+    transactionId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "admin_approve_recharge",
+                {
+                    p_transaction_id:
+                        transactionId
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        alert(
+            "Recharge approved successfully."
+        );
+
+
+        await loadAdminPanel();
+
+    } catch (error) {
+
+        console.error(
+            "Approve recharge:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to approve recharge."
+        );
+
+    }
+
 }
-function buildVipGrid(){
- const box=$("vipGrid");box.innerHTML="";
- Object.entries(VIP_LEVELS).forEach(([level,v])=>{
-  const card=document.createElement("div");card.className="task-card";
-  card.innerHTML=`<div><h3>VIP ${level}</h3><p>${escapeHtml(v.task)} · Daily opportunity ${money(v.daily)}</p><small>Activation amount: ${money(v.unlock)}</small></div><button class="small-btn" onclick="openVipModal(${level})">VIEW</button>`;
-  box.appendChild(card);
- });
+
+
+/* =========================================================
+   ADMIN REJECT RECHARGE
+   ========================================================= */
+
+async function rejectRecharge(
+    transactionId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            error
+        } =
+            await db.rpc(
+                "admin_reject_recharge",
+                {
+                    p_transaction_id:
+                        transactionId
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        alert(
+            "Recharge rejected."
+        );
+
+
+        await loadAdminPanel();
+
+    } catch (error) {
+
+        console.error(
+            "Reject recharge:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to reject recharge."
+        );
+
+    }
+
 }
-function openVipModal(level){
- selectedVip=Number(level);const v=VIP_LEVELS[level];$("modalVipTitle").textContent="VIP "+level;
- $("modalVipBody").innerHTML=`<p><b>${escapeHtml(v.task)}</b></p><p>Activation amount: <b>${money(v.unlock)}</b></p><p>Displayed daily opportunity: <b>${money(v.daily)}</b></p><p class="muted">VIP activation is submitted for backend/admin processing. No balance is debited by this screen.</p>`;
- $("vipModalMessage").textContent="";$("vipModal").classList.remove("hidden");
+
+
+/* =========================================================
+   ADMIN APPROVE VIP
+   ========================================================= */
+
+async function approveVip(
+    transactionId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        /* ================================
+           GET VIP TRANSACTION DETAILS
+        ================================= */
+
+        const {
+            data: transaction,
+            error: transactionError
+        } =
+            await db
+                .from("transactions")
+                .select(
+                    "id,user_id,amount,description"
+                )
+                .eq(
+                    "id",
+                    transactionId
+                )
+                .single();
+
+
+        if (transactionError) {
+
+            throw transactionError;
+
+        }
+
+
+        /* ================================
+           DETERMINE VIP LEVEL
+        ================================= */
+
+        const description =
+            String(
+                transaction.description || ""
+            );
+
+
+        const match =
+            description.match(
+                /VIP\s+(\d+)/i
+            );
+
+
+        let vipLevel =
+            match
+                ? Number(match[1])
+                : null;
+
+
+        /* Fallback: match unlock amount */
+
+        if (!vipLevel) {
+
+            const vip =
+                VIP_LEVELS.find(
+                    level =>
+                        Number(level.unlock) ===
+                        Number(transaction.amount)
+                );
+
+
+            if (vip) {
+
+                vipLevel =
+                    Number(vip.level);
+
+            }
+
+        }
+
+
+        if (!vipLevel) {
+
+            throw new Error(
+                "Unable to determine VIP level for this activation."
+            );
+
+        }
+
+
+        /* ================================
+           APPROVE VIP ACTIVATION
+        ================================= */
+
+        const {
+            error
+        } =
+            await db.rpc(
+                "admin_approve_vip",
+                {
+                    p_transaction_id:
+                        transactionId
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        /* ================================
+           PROCESS REFERRAL REWARD
+           12% GOES TO THE REFERRER
+        ================================= */
+
+        let referralProcessed =
+            false;
+
+
+        try {
+
+            const {
+                error:
+                    referralError
+            } =
+                await db.rpc(
+                    "process_referral_reward",
+                    {
+                        p_referred_user_id:
+                            transaction.user_id,
+
+                        p_vip_level:
+                            vipLevel
+                    }
+                );
+
+
+            if (referralError) {
+
+                console.error(
+                    "Referral reward:",
+                    referralError
+                );
+
+            } else {
+
+                referralProcessed =
+                    true;
+
+            }
+
+        } catch (referralError) {
+
+            console.error(
+                "Referral reward error:",
+                referralError
+            );
+
+        }
+
+
+        /* ================================
+           SUCCESS MESSAGE
+        ================================= */
+
+        if (referralProcessed) {
+
+            alert(
+                "VIP activation approved successfully.\n\n" +
+                "Referral reward processed successfully."
+            );
+
+        } else {
+
+            alert(
+                "VIP activation approved successfully."
+            );
+
+        }
+
+
+        await loadAdminPanel();
+
+
+    } catch (error) {
+
+        console.error(
+            "Approve VIP:",
+            error
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to approve VIP."
+        );
+
+    }
+
 }
-function closeVipModal(){closeModal("vipModal")}
-async function confirmVipUnlock(){
- if(!selectedVip)return;const v=VIP_LEVELS[selectedVip];
- const {error}=await db.from("transactions").insert({user_id:currentUser.id,type:"vip_activation",amount:v.unlock,status:"pending",reference:"VIP-"+Date.now(),description:`VIP ${selectedVip} activation request`});
- setMessage("vipModalMessage",error?error.message:"VIP activation request submitted.","success");
- if(!error)closeVipModal();
+/* =========================================================
+   ADMIN REJECT VIP
+   ========================================================= */
+
+async function rejectVip(
+    transactionId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            error
+        } =
+            await db.rpc(
+                "admin_reject_vip",
+                {
+                    p_transaction_id:
+                        transactionId
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        alert(
+            "VIP activation rejected."
+        );
+
+
+        await loadAdminPanel();
+
+    } catch (error) {
+
+        console.error(
+            "Reject VIP:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to reject VIP."
+        );
+
+    }
+
 }
-async function loadAvailableTasks(){
- const box=$("availableTasks");box.innerHTML="";
- const vip=Number(currentProfile?.vip_level||0);
- if(!vip){box.innerHTML='<div class="notice">Activate a VIP level to access VIP task opportunities.</div>';return}
- const v=VIP_LEVELS[vip]||VIP_LEVELS[1];
- const card=document.createElement("div");card.className="task-card";
- card.innerHTML=`<div><h3>${escapeHtml(v.task)}</h3><p>VIP ${vip} task opportunity · ${money(v.daily)}</p></div><button class="small-btn" onclick="acceptVipTask(${vip})">ACCEPT</button>`;
- box.appendChild(card);
+
+
+/* =========================================================
+   ADMIN APPROVE WITHDRAWAL
+   ========================================================= */
+
+async function approveWithdrawal(
+    withdrawalId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        /*
+         * Correct RPC created in Step 8:
+         *
+         * admin_process_withdrawal(
+         *     p_withdrawal_id,
+         *     p_action
+         * )
+         */
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "admin_process_withdrawal",
+                {
+                    p_withdrawal_id:
+                        withdrawalId,
+                    p_action:
+                        "approved"
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        alert(
+            "Withdrawal approved successfully."
+        );
+
+
+        await loadAdminPanel();
+
+    } catch (error) {
+
+        console.error(
+            "Approve withdrawal:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to approve withdrawal."
+        );
+
+    }
+
 }
-async function acceptVipTask(level){
- const {data,error}=await db.rpc("accept_task",{p_task_type:"vip_task",p_vip_level:Number(level)});
- if(error)return alert(error.message);
- alert("Task accepted.");loadAvailableTasks();loadMyTasks();
+
+
+/* =========================================================
+   ADMIN REJECT WITHDRAWAL
+   ========================================================= */
+
+async function rejectWithdrawal(
+    withdrawalId
+) {
+
+    if (!isCurrentUserAdmin()) {
+
+        alert(
+            "Admin access required."
+        );
+
+        return;
+
+    }
+
+
+    const confirmed =
+        window.confirm(
+            "Reject this withdrawal? The deducted amount will be refunded to the member's balance."
+        );
+
+
+    if (!confirmed) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await db.rpc(
+                "admin_process_withdrawal",
+                {
+                    p_withdrawal_id:
+                        withdrawalId,
+                    p_action:
+                        "rejected"
+                }
+            );
+
+
+        if (error) {
+
+            throw error;
+
+        }
+
+
+        alert(
+            "Withdrawal rejected and the amount has been refunded."
+        );
+
+
+        await loadAdminPanel();
+
+    } catch (error) {
+
+        console.error(
+            "Reject withdrawal:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to reject withdrawal."
+        );
+
+    }
+
 }
-async function loadMyTasks(){
- const box=$("myTasks");box.innerHTML="";
- const {data,error}=await db.rpc("get_my_task_history");
- if(error||!data){box.innerHTML='<div class="notice">No task records found.</div>';return}
- const rows=Array.isArray(data)?data:[data];if(!rows.length){box.innerHTML='<div class="notice">No task records found.</div>';return}
- rows.slice(0,30).forEach(r=>{const el=document.createElement("div");el.className="task-card";el.innerHTML=`<div><h3>${escapeHtml(r.task_type||r.title||"Task")}</h3><p>Status: ${escapeHtml(r.status||"pending")}</p></div><span>${money(r.reward||r.amount||0)}</span>`;box.appendChild(el)});
+
+function contactAdminWhatsApp() {
+
+    const whatsappNumber =
+        "254111840669";
+
+    const whatsapp =
+        "https://wa.me/" + whatsappNumber;
+
+    window.open(
+        whatsapp,
+        "_blank",
+        "noopener,noreferrer"
+    );
 }
-async function loadEarningsHistory(){await loadTransactionHistory("earningsHistory","earnings")}
-async function loadTransactionHistory(target,type){
- const box=$(target);if(!box)return;box.innerHTML="";
- let q=db.from("transactions").select("*").eq("user_id",currentUser.id).order("created_at",{ascending:false}).limit(30);
- if(type==="recharge")q=q.eq("type","recharge");
- const {data,error}=await q;if(error||!data?.length){box.innerHTML='<div class="notice">No records found.</div>';return}
- data.forEach(r=>{const el=document.createElement("div");el.className="task-card";el.innerHTML=`<div><h3>${escapeHtml(r.type||"Transaction")}</h3><p>${escapeHtml(r.status||"pending")} · ${formatDate(r.created_at)}</p></div><b>${money(r.amount)}</b>`;box.appendChild(el)});
+
+
+function joinWhatsAppGroup() {
+
+    const groupLink =
+        "https://chat.whatsapp.com/FCS4uDnwTlzBNoH6N4wtTt?s=cl&p=a&ilr=4&iam=0";
+
+    window.open(
+        groupLink,
+        "_blank",
+        "noopener,noreferrer"
+    );
 }
-async function requestRecharge(){
- const amount=Number($("rechargeAmount").value),network=$("rechargeNetwork").value,address=RECHARGE_ADDRESSES[network];
- if(!(amount>0))return setMessage("rechargeMessage","Enter a valid amount.");
- const {error}=await db.from("transactions").insert({user_id:currentUser.id,type:"recharge",amount,status:"pending",reference:"RECHARGE-"+Date.now(),description:`Recharge ${network} to ${address}`});
- if(error)return setMessage("rechargeMessage",error.message);
- setMessage("rechargeMessage","Recharge request submitted for admin review.","success");$("rechargeAmount").value="";loadTransactionHistory("rechargeHistory","recharge");
+
+
+window.contactAdminWhatsApp =
+    contactAdminWhatsApp;
+
+window.joinWhatsAppGroup =
+    joinWhatsAppGroup;
+
+
+/* =========================================================
+   LOGOUT
+   ========================================================= */
+
+async function logout() {
+
+    try {
+
+        await db.auth.signOut();
+
+    } catch (error) {
+
+        console.error(
+            "Logout:",
+            error
+        );
+
+    }
+
+
+    currentUser = null;
+
+    currentProfile = null;
+
+    selectedVip = null;
+
+
+    const appScreen =
+        document.getElementById(
+            "appScreen"
+        );
+
+
+    const authScreen =
+        document.getElementById(
+            "authScreen"
+        );
+
+
+    if (appScreen) {
+
+        appScreen.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    if (authScreen) {
+
+        authScreen.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    showAuth("login");
+
 }
-function updateRechargeAddress(){$("rechargeAddress").value=RECHARGE_ADDRESSES[$("rechargeNetwork").value]||""}
-async function copyRechargeAddress(){await copyText($("rechargeAddress").value);setMessage("rechargeMessage","Address copied.","success")}
-async function loadWithdrawalHistory(){
- const box=$("withdrawHistory");box.innerHTML="";
- const {data,error}=await db.from("withdrawals").select("*").eq("user_id",currentUser.id).order("created_at",{ascending:false}).limit(30);
- if(error||!data?.length){box.innerHTML='<div class="notice">No withdrawal records found.</div>';return}
- data.forEach(r=>{const el=document.createElement("div");el.className="task-card";el.innerHTML=`<div><h3>${escapeHtml(r.network||"Withdrawal")}</h3><p>${escapeHtml(r.status||"pending")} · ${formatDate(r.created_at)}</p></div><b>${money(r.amount)}</b>`;box.appendChild(el)});
+
+
+/* =========================================================
+   UTILITY — MONEY
+   ========================================================= */
+
+function money(value) {
+
+    const number =
+        Number(value) || 0;
+
+
+    return (
+        "$" +
+        number.toFixed(2)
+    );
+
 }
-function calculateWithdrawal(){
- const amount=Number($("withdrawAmount").value)||0,fee=amount*WITHDRAWAL_FEE_RATE,net=Math.max(0,amount-fee);
- $("withdrawGross").textContent=money(amount);$("withdrawFee").textContent=money(fee);$("withdrawNet").textContent=money(net);
+
+
+function formatMoney(value) {
+
+    return money(value);
+
 }
-async function requestWithdrawal(){
- const amount=Number($("withdrawAmount").value),network=$("withdrawNetwork").value,address=$("withdrawAddress").value.trim(),pin=$("withdrawPin").value.trim();
- if(amount<WITHDRAWAL_MINIMUM)return setMessage("withdrawMessage","Minimum withdrawal is $2.00.");
- if(!address)return setMessage("withdrawMessage","Set your withdrawal address first.");
- if(!/^\\d{4}$/.test(pin))return setMessage("withdrawMessage","Withdrawal PIN must be exactly 4 digits.");
- if(Number(currentProfile?.balance||0)<amount)return setMessage("withdrawMessage","Insufficient available balance.");
- /* The secure SQL/RPC supplied later will verify the PIN and locked address server-side. */
- const secure=await db.rpc("request_withdrawal_secure",{p_amount:amount,p_network:network,p_wallet_address:address,p_withdrawal_pin:pin});
- if(!secure.error){setMessage("withdrawMessage","Withdrawal request submitted.","success");$("withdrawPin").value="";loadWithdrawalHistory();return}
- const fallback=await db.rpc("request_withdrawal",{p_amount:amount,p_network:network,p_wallet_address:address});
- if(fallback.error)return setMessage("withdrawMessage","Secure withdrawal backend is not installed yet. Run the SQL provided with this project before submitting withdrawals.");
- setMessage("withdrawMessage","Request submitted. Secure PIN verification will become active after the SQL migration is installed.","success");$("withdrawPin").value="";loadWithdrawalHistory();
+
+
+/* =========================================================
+   UTILITY — DATE
+   ========================================================= */
+
+function formatDate(value) {
+
+    if (!value) {
+
+        return "—";
+
+    }
+
+
+    try {
+
+        const date =
+            new Date(value);
+
+
+        if (Number.isNaN(
+            date.getTime()
+        )) {
+
+            return String(value);
+
+        }
+
+
+        return date.toLocaleString();
+
+    } catch (error) {
+
+        return String(value);
+
+    }
+
 }
-async function loadSavedWithdrawalAddress(){
- $("withdrawAddress").value=currentProfile?.withdrawal_address||"";
+
+
+/* =========================================================
+   UTILITY — SET TEXT
+   ========================================================= */
+
+function setText(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(id);
+
+
+    if (element) {
+
+        element.textContent =
+            value;
+
+    }
+
 }
-function openPinModal(){$("newPin").value="";$("confirmPin").value="";$("pinMessage").textContent="";$("pinModal").classList.remove("hidden")}
-async function saveWithdrawalPin(){
- const a=$("newPin").value.trim(),b=$("confirmPin").value.trim();
- if(!/^\\d{4}$/.test(a))return setMessage("pinMessage","PIN must be exactly 4 digits.");
- if(a!==b)return setMessage("pinMessage","PINs do not match.");
- const r=await db.rpc("set_withdrawal_pin",{p_pin:a});
- if(r.error)return setMessage("pinMessage","PIN backend is not installed yet. Run the SQL migration first.");
- setMessage("pinMessage","Withdrawal PIN saved.","success");setTimeout(()=>closeModal("pinModal"),600);
+
+
+/* =========================================================
+   UTILITY — MESSAGE
+   ========================================================= */
+
+function setMessage(
+    element,
+    message,
+    isError = false
+) {
+
+    if (!element) {
+        return;
+    }
+
+
+    element.textContent =
+        message;
+
+
+    element.style.display =
+        "block";
+
+
+    element.style.color =
+        isError
+            ? "#ff6b6b"
+            : "#55efc4";
+
 }
-function openAddressModal(){
- $("newWithdrawalAddress").value=currentProfile?.withdrawal_address||"";
- $("addressMessage").textContent="";$("addressModal").classList.remove("hidden");
+
+
+/* =========================================================
+   UTILITY — ESCAPE HTML
+   ========================================================= */
+
+function escapeHtml(value) {
+
+    return String(
+        value ?? ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
 }
-async function saveWithdrawalAddress(){
- const address=$("newWithdrawalAddress").value.trim(),network=$("addressNetwork").value;
- if(!address)return setMessage("addressMessage","Enter a wallet address.");
- const r=await db.rpc("set_withdrawal_address",{p_network:network,p_address:address});
- if(r.error)return setMessage("addressMessage","Address-lock backend is not installed yet. Run the SQL migration first.");
- currentProfile.withdrawal_address=address;currentProfile.withdrawal_network=network;updateUserInterface();
- setMessage("addressMessage","Withdrawal address saved and locked.","success");setTimeout(()=>closeModal("addressModal"),700);
+
+
+/* =========================================================
+   UTILITY — ESCAPE ATTRIBUTE
+   ========================================================= */
+
+function escapeAttribute(value) {
+
+    return String(
+        value ?? ""
+    )
+        .replace(
+            /\\/g,
+            "\\\\"
+        )
+        .replace(
+            /'/g,
+            "\\'"
+        );
+
 }
-async function loadReferralHistory(){
- const box=$("referralHistory");box.innerHTML="";
- const {data,error}=await db.from("referrals").select("*").or(`referrer_id.eq.${currentUser.id},referred_user_id.eq.${currentUser.id}`).order("created_at",{ascending:false}).limit(30);
- if(error||!data?.length){box.innerHTML='<div class="notice">No referral records found.</div>';return}
- data.forEach(r=>{const el=document.createElement("div");el.className="task-card";el.innerHTML=`<div><h3>Referral</h3><p>Status: ${escapeHtml(r.status||"pending")}</p></div><b>${money(r.reward||0)}</b>`;box.appendChild(el)});
+
+
+/* =========================================================
+   UTILITY — COPY
+   ========================================================= */
+
+async function copyText(text) {
+
+    try {
+
+        if (
+            navigator.clipboard &&
+            navigator.clipboard.writeText
+        ) {
+
+            await navigator.clipboard.writeText(
+                text
+            );
+
+            return true;
+
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "Clipboard API:",
+            error
+        );
+
+    }
+
+
+    try {
+
+        const textarea =
+            document.createElement(
+                "textarea"
+            );
+
+
+        textarea.value =
+            text;
+
+
+        textarea.style.position =
+            "fixed";
+
+        textarea.style.opacity =
+            "0";
+
+
+        document.body.appendChild(
+            textarea
+        );
+
+
+        textarea.focus();
+
+        textarea.select();
+
+
+        document.execCommand(
+            "copy"
+        );
+
+
+        textarea.remove();
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Copy error:",
+            error
+        );
+
+        return false;
+
+    }
+
 }
-async function loadTeamReport(){
- const box=$("teamList");box.innerHTML="";
- const {data,error}=await db.from("profiles").select("id,full_name,email,username,vip_level,earnings,created_at").eq("referred_by",currentUser.id).order("created_at",{ascending:false});
- if(error||!data){box.innerHTML='<div class="notice">Team report backend is not available.</div>';return}
- $("teamCount").textContent=data.length;$("teamActive").textContent=data.filter(x=>Number(x.vip_level)>0).length;$("teamEarnings").textContent=money(data.reduce((s,x)=>s+Number(x.earnings||0),0));
- if(!data.length)box.innerHTML='<div class="notice">No referred members yet.</div>';
- data.forEach(x=>{const el=document.createElement("div");el.className="task-card";el.innerHTML=`<div><h3>${escapeHtml(x.full_name||x.username||"Member")}</h3><p>VIP ${Number(x.vip_level||0)} · ${escapeHtml(x.email||"")}</p></div>`;box.appendChild(el)});
-}
-function loadAgentPosition(){
- const vip=Number(currentProfile?.vip_level||0),pct=Math.min(100,vip/7*100),position=vip>=7?"Senior Agent":vip>=5?"Agent":vip>=2?"Junior Agent":"Member";
- $("agentPosition").textContent=position;$("positionProgress").style.width=pct+"%";$("positionProgressText").textContent=Math.round(pct)+"%";
- $("agentPositionText").textContent=vip?`Your VIP level is ${vip}. Continue building activity to qualify for higher positions.`:"Build your activity and referral team to qualify for higher positions.";
-}
-async function loadInvestmentHistory(){
- const box=$("investmentHistory");box.innerHTML='<div class="notice">Investment history will appear here when the compliant investment backend is configured.</div>';
-}
-function submitInvestment(){setMessage("investmentMessage","Investment activation is not enabled until the compliant backend and terms are configured.","info")}
-function submitAgentApplication(){const reason=$("agentReason").value.trim();if(reason.length<10)return setMessage("agentMessage","Please provide more detail.");setMessage("agentMessage","Application prepared. Connect the agent-application backend to submit it.","info")}
-function openPinModal(){ $("newPin").value="";$("confirmPin").value="";$("pinMessage").textContent="";$("pinModal").classList.remove("hidden") }
-function closeModal(id){$(id)?.classList.add("hidden")}
-function showMessage(id,msg,type){setMessage(id,msg,type)}
-function setMessage(id,msg,type=""){const el=$(id);if(!el)return;el.textContent=msg;el.style.color=type==="success"?"#68e0ad":type==="info"?"#a9b7d5":"#ff9b9b"}
-function clearMessage(id){setMessage(id,"")}
-async function copyReferralCode(){await copyText($("myReferralCode").textContent);setMessage("referralHistory","Referral code copied.","success")}
-async function copyReferralLink(){await copyText($("referralLink").value);setMessage("referralHistory","Referral link copied.","success")}
-function makeReferralCode(){return"AME"+Math.floor(100000+Math.random()*900000)}
-function money(v){return"$"+Number(v||0).toFixed(2)}
-function formatDate(v){if(!v)return"-";return new Date(v).toLocaleString()}
-function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-async function copyText(t){if(navigator.clipboard)await navigator.clipboard.writeText(t);else{const x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();document.execCommand("copy");x.remove()}}
-async function loadNotifications(){}
-function stopSectionMusic(){if(window._sectionAudio){window._sectionAudio.pause();window._sectionAudio.currentTime=0;window._sectionAudio=null}}
-function toggleSectionMusic(section){
- stopSectionMusic();const audio=new Audio(section==="lucky"?"./lucky-draw.mp3":"./point-mall.mp3");audio.loop=true;window._sectionAudio=audio;
- audio.play().then(()=>{const id=section==="lucky"?"luckyMusicBtn":"pointsMusicBtn";$(id).textContent="🔊 Playing";}).catch(()=>{const id=section==="lucky"?"luckyMusicBtn":"pointsMusicBtn";$(id).textContent="▶ Tap to play"});
-}
-async function openAdminPanel(){if(isCurrentUserAdmin())openPage("adminPage")}
-function isCurrentUserAdmin(){return String(currentProfile?.role||"").toLowerCase()==="admin"}
-async function loadAdminPanel(){
- if(!isCurrentUserAdmin())return;
- const [users,recharges,withdrawals,vips]=await Promise.all([
-  db.from("profiles").select("*").order("created_at",{ascending:false}).limit(100),
-  db.from("transactions").select("*").eq("type","recharge").eq("status","pending").order("created_at",{ascending:false}),
-  db.from("withdrawals").select("*").eq("status","pending").order("created_at",{ascending:false}),
-  db.from("transactions").select("*").eq("type","vip_activation").eq("status","pending").order("created_at",{ascending:false})
- ]);
- renderAdminUsers(users.data||[]);renderAdminRequests("adminRechargeList",recharges.data||[],"recharge");renderAdminRequests("adminWithdrawalList",withdrawals.data||[],"withdrawal");renderAdminRequests("adminVipList",vips.data||[],"vip");
- $("adminUsers").textContent=(users.data||[]).length;$("adminRechargeCount").textContent=(recharges.data||[]).length;$("adminWithdrawCount").textContent=(withdrawals.data||[]).length;
-}
-function renderAdminUsers(rows){
- const box=$("adminUsersList");box.innerHTML="";rows.forEach(r=>{const el=document.createElement("div");el.className="admin-item";el.innerHTML=`<div><h3>${escapeHtml(r.full_name||r.username||"Member")}</h3><p>${escapeHtml(r.email||"")} · VIP ${Number(r.vip_level||0)} · Balance ${money(r.balance)}</p></div><button class="small-btn" onclick="viewMember('${r.id}')">VIEW</button>`;box.appendChild(el)});
-}
-function renderAdminRequests(target,rows,type){
- const box=$(target);box.innerHTML="";if(!rows.length){box.innerHTML='<div class="notice">No pending requests.</div>';return}
- rows.forEach(r=>{const el=document.createElement("div");el.className="admin-item";let title=type==="vip"?(r.description||"VIP activation"):type==="recharge"?"Recharge":"Withdrawal";el.innerHTML=`<div><h3>${escapeHtml(title)}</h3><p>${money(r.amount)} · ${formatDate(r.created_at)}</p></div><div><button class="small-btn" onclick="viewMember('${r.user_id}')">MEMBER</button> ${type==="recharge"?`<button class="small-btn" onclick="approveRecharge('${r.id}')">APPROVE</button>`:type==="withdrawal"?`<button class="small-btn" onclick="processWithdrawal('${r.id}','approved')">APPROVE</button>`:""}</div>`;box.appendChild(el)});
-}
-async function viewMember(id){
- const {data,error}=await db.from("profiles").select("*").eq("id",id).maybeSingle();
- if(error||!data)return alert(error?.message||"Member not found.");
- $("memberDetails").innerHTML=`<div class="cards">
- <div class="task-card"><span>Full name</span><b>${escapeHtml(data.full_name||"-")}</b></div>
- <div class="task-card"><span>Email</span><b>${escapeHtml(data.email||"-")}</b></div>
- <div class="task-card"><span>Username</span><b>${escapeHtml(data.username||"-")}</b></div>
- <div class="task-card"><span>Phone</span><b>${escapeHtml(data.phone||"-")}</b></div>
- <div class="task-card"><span>Role</span><b>${escapeHtml(data.role||"member")}</b></div>
- <div class="task-card"><span>VIP</span><b>${Number(data.vip_level||0)}</b></div>
- <div class="task-card"><span>Balance</span><b>${money(data.balance)}</b></div>
- <div class="task-card"><span>Earnings</span><b>${money(data.earnings)}</b></div>
- <div class="task-card"><span>Referral Code</span><b>${escapeHtml(data.referral_code||"-")}</b></div>
- <div class="task-card"><span>Created</span><b>${formatDate(data.created_at)}</b></div>
- </div>`;
- $("memberModal").classList.remove("hidden");
-}
-async function approveRecharge(id){
- const r=await db.rpc("admin_approve_recharge",{p_transaction_id:id});
- if(r.error)alert(r.error.message);else loadAdminPanel();
-}
-async function processWithdrawal(id,action){
- const r=await db.rpc("admin_process_withdrawal",{p_withdrawal_id:id,p_action:action});
- if(r.error)alert(r.error.message);else loadAdminPanel();
-}
-async function logoutUser(){await db.auth.signOut();currentUser=null;currentProfile=null;$("appScreen").classList.add("hidden");showAuth("login")}
-function contactAdminWhatsApp(){const whatsappNumber="254111840669";const whatsapp="https://wa.me/"+whatsappNumber;window.open(whatsapp,"_blank","noopener,noreferrer")}
-function joinWhatsAppGroup(){const groupLink="https://chat.whatsapp.com/FCS4uDnwTlzBNoH6N4wtTt?s=cl&p=a&ilr=4&iam=0";window.open(groupLink,"_blank","noopener,noreferrer")}
-window.showAuth=showAuth;window.loginUser=loginUser;window.registerUser=registerUser;window.resetPassword=resetPassword;window.openPage=openPage;window.openVipModal=openVipModal;window.closeVipModal=closeVipModal;window.confirmVipUnlock=confirmVipUnlock;window.acceptVipTask=acceptVipTask;window.requestRecharge=requestRecharge;window.updateRechargeAddress=updateRechargeAddress;window.copyRechargeAddress=copyRechargeAddress;window.requestWithdrawal=requestWithdrawal;window.calculateWithdrawal=calculateWithdrawal;window.openPinModal=openPinModal;window.saveWithdrawalPin=saveWithdrawalPin;window.openAddressModal=openAddressModal;window.saveWithdrawalAddress=saveWithdrawalAddress;window.closeModal=closeModal;window.copyReferralCode=copyReferralCode;window.copyReferralLink=copyReferralLink;window.submitInvestment=submitInvestment;window.submitAgentApplication=submitAgentApplication;window.toggleSectionMusic=toggleSectionMusic;window.openAdminPanel=openAdminPanel;window.viewMember=viewMember;window.approveRecharge=approveRecharge;window.processWithdrawal=processWithdrawal;window.logoutUser=logoutUser;window.contactAdminWhatsApp=contactAdminWhatsApp;window.joinWhatsAppGroup=joinWhatsAppGroup;
+
+
+/* =========================================================
+   GLOBAL FUNCTIONS
+   ========================================================= */
+
+window.showAuth =
+    showAuth;
+
+window.logout =
+    logout;
+
+window.openPage =
+    openPage;
+
+window.openVipModal =
+    openVipModal;
+
+window.closeVipModal =
+    closeVipModal;
+
+window.confirmVipUnlock =
+    confirmVipUnlock;
+
+window.acceptVipTask =
+    acceptVipTask;
+
+window.acceptDatabaseTask =
+    acceptDatabaseTask;
+
+window.completeMyTask =
+    completeMyTask;
+
+window.calculateWithdrawal =
+    calculateWithdrawal;
+
+window.requestRecharge =
+    requestRecharge;
+
+window.requestWithdrawal =
+    requestWithdrawal;
+
+window.contactAdminTelegram =
+    contactAdminTelegram;
+
+window.copyReferralCode =
+    copyReferralCode;
+
+window.copyReferralLink =
+    copyReferralLink;
+
+window.shareReferral =
+    shareReferral;
+
+window.openAdminPanel =
+    openAdminPanel;
+
+window.approveRecharge =
+    approveRecharge;
+
+window.rejectRecharge =
+    rejectRecharge;
+
+window.approveVip =
+    approveVip;
+
+window.rejectVip =
+    rejectVip;
+
+window.approveWithdrawal =
+    approveWithdrawal;
+
+window.rejectWithdrawal =
+    rejectWithdrawal;
+
+
+/* =========================================================
+   STARTUP MESSAGE
+   ========================================================= */
+
+console.log(
+    "AME REELS app.js loaded successfully."
+);
