@@ -16,15 +16,7 @@
         rel="stylesheet"
         href="./style.css"
     >
-<link
-    rel="manifest"
-    href="./manifest.json"
->
 
-<meta
-    name="theme-color"
-    content="#000000"
->
 </head>
 
 
@@ -1721,43 +1713,75 @@
 
 
 
-            <!-- ================= TELEGRAM ADMIN ================= -->
+            <div class="profile-card whatsapp-card">
 
-            <div class="profile-card telegram-card">
-
-                <span class="small-label">
-                    SUPPORT
-                </span>
+    <span class="small-label">
+        WHATSAPP SUPPORT
+    </span>
 
 
-                <h3>
-                    Need Help?
-                </h3>
+    <h3>
+        Need Help?
+    </h3>
 
 
-                <p>
-                    Contact the AME REELS Admin directly
-                    on Telegram for assistance or
-                    account support.
-                </p>
+    <p>
+        Contact the AME REELS Admin directly
+        on WhatsApp for assistance or
+        account support.
+    </p>
 
 
-                <button
-                    type="button"
-                    class="main-btn"
-                    onclick="contactAdminTelegram()"
-                >
-                    📱 CONTACT ADMIN ON TELEGRAM
-                </button>
-
-            </div>
+    <p>
+        <strong>WhatsApp:</strong> +254 111 840 669
+    </p>
 
 
-        </section>
+    <button
+        type="button"
+        class="main-btn"
+        onclick="contactAdminWhatsApp()"
+    >
+        💬 CONTACT ADMIN ON WHATSAPP
+    </button>
+
+</div>
 
 
-    </main>
+<div class="profile-card whatsapp-group-card">
 
+    <span class="small-label">
+        AME REELS COMMUNITY
+    </span>
+
+
+    <h3>
+        Join Our WhatsApp Group
+    </h3>
+
+
+    <p>
+        Join the AME REELS WhatsApp Group
+        for announcements, updates and
+        community communication.
+    </p>
+
+
+    <button
+        type="button"
+        class="main-btn"
+        onclick="joinWhatsAppGroup()"
+    >
+        👥 JOIN WHATSAPP GROUP
+    </button>
+
+</div>
+
+
+</section>
+
+
+</main>
 
 
     <!-- ================= BOTTOM NAV ================= -->
@@ -1984,39 +2008,6 @@ console.log(
 <!-- ================= APPLICATION ================= -->
 
 <script src="./app.js"></script>
-
-
-<!-- ================= PWA SERVICE WORKER ================= -->
-
-<script>
-
-if ("serviceWorker" in navigator) {
-
-    window.addEventListener("load", function () {
-
-        navigator.serviceWorker
-            .register("./service-worker.js")
-            .then(function () {
-
-                console.log(
-                    "AME REELS service worker registered successfully."
-                );
-
-            })
-            .catch(function (error) {
-
-                console.error(
-                    "AME REELS service worker registration failed:",
-                    error
-                );
-
-            });
-
-    });
-
-}
-
-</script>
 
 
 </body>
