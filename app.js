@@ -4758,19 +4758,16 @@ async function rejectWithdrawal(
 /* =========================================================
    TELEGRAM ADMIN
    ========================================================= */
-
 function contactAdminTelegram() {
-
     const telegram =
-        "https://t.me/+Z0CMQmGAUngxZWVk";
-
+        "https://t.me/AMEREELCOMPANY";
 
     window.open(
         telegram,
         "_blank"
     );
-
 }
+
 
 
 /* =========================================================
