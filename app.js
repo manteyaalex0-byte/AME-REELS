@@ -711,7 +711,38 @@ function openPage(id){
     });
 }
 
+/* =========================================================
+   TASK WORKING DAYS — KENYA TIME
+   Monday to Friday only
+   ========================================================= */
 
+function isTaskWorkday() {
+    const weekday = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Africa/Nairobi",
+        weekday: "short"
+    }).format(new Date());
+
+    return !["Sat", "Sun"].includes(weekday);
+}
+
+function showWeekendTaskMessage(container) {
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="task-card">
+            <h3>Weekend Break</h3>
+
+            <p>
+                Tasks are available Monday to Friday only.
+            </p>
+
+            <p>
+                Task activities resume on Monday.
+                Please return then to continue.
+            </p>
+        </div>
+    `;
+}
 /* =========================================================
    TASK MANAGEMENT
    ========================================================= */
@@ -806,146 +837,246 @@ async function loadDashboardData(){
 /* =========================================================
    AVAILABLE TASKS
    ========================================================= */
-
 async function loadAvailableTasks(){
 
-    const box =
-        $("availableTasks");
+    const container =
+        document.getElementById("availableTasks");
 
-    if(!box) return;
+    if(!container) return;
+
+    container.innerHTML = "";
+
+if (!currentUser || !currentProfile) {
+    return;
+}
+
+if (!isTaskWorkday()) {
+    showWeekendTaskMessage(container);
+    return;
+}
+
+    try{
+
+        /*
+         * Check whether the member has already
+         * performed a task today.
+         */
+
+        const { data: existingTasks, error: historyError } =
+            await db
+            .from("user_tasks")
+            .select(`
+                id,
+                status,
+                task_id,
+                tasks (
+                    task_date,
+                    vip_level
+                )
+            `)
+            .eq("user_id", currentUser.id);
+
+        if(historyError){
+            console.error(
+                "Task history error:",
+                historyError
+            );
+
+            container.innerHTML =
+                "<p>Unable to load tasks.</p>";
+
+            return;
+        }
 
 
-    box.innerHTML = "";
+        /*
+         * Nairobi date
+         */
+
+        const today =
+            new Intl.DateTimeFormat(
+                "en-CA",
+                {
+                    timeZone: "Africa/Nairobi"
+                }
+            ).format(new Date());
 
 
-    const vip =
-        Number(
-            currentProfile?.vip_level || 0
-        );
+        /*
+         * Has this member already performed
+         * a task today?
+         */
+
+        const alreadyPerformedToday =
+            (existingTasks || []).some(row => {
+
+                if(!row.tasks) return false;
+
+                const taskDate =
+                    new Date(row.tasks.task_date);
+
+                const taskDay =
+                    new Intl.DateTimeFormat(
+                        "en-CA",
+                        {
+                            timeZone: "Africa/Nairobi"
+                        }
+                    ).format(taskDate);
+
+                return (
+                    taskDay === today &&
+                    (
+                        row.status === "accepted" ||
+                        row.status === "pending" ||
+                        row.status === "completed"
+                    )
+                );
+
+            });
 
 
-    if(!vip){
+        /*
+         * If one task has already been performed,
+         * do NOT show another available task.
+         */
 
-        box.innerHTML = `
-            <div class="notice">
-                Activate a VIP level to access VIP task opportunities.
-            </div>
-        `;
+        if(alreadyPerformedToday){
+
+            container.innerHTML = `
+                <div class="task-card">
+                    <h3>Daily Task Completed</h3>
+
+                    <p>
+                        You have already performed
+                        your task for today.
+                    </p>
+
+                    <p>
+                        Only <b>one task per day</b>
+                        is allowed.
+                    </p>
+
+                    <p>
+                        Please return tomorrow for
+                        your next task.
+                    </p>
+                </div>
+            `;
+
+            return;
+        }
 
 
-        await updateTaskCounts();
+        /*
+         * Load tasks for the member's VIP level.
+         */
 
-        return;
-    }
+        const vipLevel =
+            Number(currentProfile.vip_level || 0);
+
+        if(vipLevel <= 0){
+
+            container.innerHTML = `
+                <div class="task-card">
+                    <h3>No Active VIP</h3>
+                    <p>
+                        Activate a VIP level to access tasks.
+                    </p>
+                </div>
+            `;
+
+            return;
+        }
 
 
-    const {
-        data,
-        error
-    } =
-        await db
-        .from("tasks")
-        .select("*")
-        .eq("status","active")
-        .eq("vip_level",vip)
-        .order(
-            "task_date",
-            {ascending:false}
-        );
+        const { data: tasks, error } =
+            await db
+            .from("tasks")
+            .select("*")
+            .eq("status", "active")
+            .eq("vip_level", vipLevel)
+            .order("task_date", {
+                ascending: true
+            });
 
 
-    if(error){
+        if(error){
+
+            console.error(
+                "Available tasks error:",
+                error
+            );
+
+            container.innerHTML =
+                "<p>Unable to load available tasks.</p>";
+
+            return;
+        }
+
+
+        if(!tasks || tasks.length === 0){
+
+            container.innerHTML = `
+                <div class="task-card">
+                    <h3>No Tasks Available</h3>
+                    <p>
+                        There are currently no tasks
+                        available for your VIP level.
+                    </p>
+                </div>
+            `;
+
+            return;
+        }
+
+
+        /*
+         * Display available task(s).
+         */
+
+        tasks.forEach(task => {
+
+            const card =
+                document.createElement("div");
+
+            card.className = "task-card";
+
+            card.innerHTML = `
+                <div>
+                    <h3>
+                        ${escapeHtml(task.title)}
+                    </h3>
+
+                    <p>
+                        Reward:
+                        <b>${money(task.reward)}</b>
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="acceptVipTask('${task.id}')"
+                >
+                    ACCEPT TASK
+                </button>
+            `;
+
+            container.appendChild(card);
+
+        });
+
+    }catch(error){
 
         console.error(
-            "Available tasks error:",
+            "loadAvailableTasks exception:",
             error
         );
 
-
-        box.innerHTML = `
-            <div class="notice">
-                Unable to load available tasks.
-            </div>
-        `;
-
-
-        await updateTaskCounts();
-
-        return;
+        container.innerHTML =
+            "<p>Unable to load tasks.</p>";
     }
-
-
-    if(!data || !data.length){
-
-        box.innerHTML = `
-            <div class="notice">
-                No available tasks found.
-            </div>
-        `;
-
-
-        await updateTaskCounts();
-
-        return;
-    }
-
-
-    data.forEach(task => {
-
-        const card =
-            document.createElement("div");
-
-
-        card.className =
-            "task-card";
-
-
-        card.innerHTML = `
-
-            <div>
-
-                <h3>
-                    ${escapeHtml(
-                        task.title ||
-                        "VIP Task"
-                    )}
-                </h3>
-
-                <p>
-                    ${escapeHtml(
-                        task.description ||
-                        "Complete this task."
-                    )}
-                </p>
-
-                <small>
-                    Reward:
-                    ${money(task.reward || 0)}
-                </small>
-
-            </div>
-
-
-            <button
-                type="button"
-                class="small-btn"
-                onclick="acceptVipTask('${task.id}')">
-
-                ACCEPT
-
-            </button>
-
-        `;
-
-
-        box.appendChild(card);
-
-    });
-
-
-    await updateTaskCounts();
 }
-
 
 /* =========================================================
    ACCEPT TASK
@@ -961,7 +1092,14 @@ async function acceptVipTask(taskId){
 
         return;
     }
+if (!isTaskWorkday()) {
+    alert(
+        "Tasks are available Monday to Friday only. Please return on Monday."
+    );
 
+    await loadAvailableTasks();
+    return;
+}
 
     if(!taskId){
 
@@ -1289,7 +1427,18 @@ async function completeTask(
     userTaskId,
     button
 ){
+if (!isTaskWorkday()) {
+    alert(
+        "Task completion is disabled on Saturday and Sunday. Please return on Monday."
+    );
 
+    if (button) {
+        button.disabled = false;
+        button.textContent = "COMPLETE TASK";
+    }
+
+    return;
+}
     if(!currentUser){
 
         alert(
@@ -2782,7 +2931,43 @@ function makeReferralCode(){
         )
     );
 }
+async function copyTextFromAdmin(withdrawalId) {
+    if (!isCurrentUserAdmin()) {
+        alert("Administrator access required.");
+        return;
+    }
 
+    const { data, error } = await db
+        .from("withdrawals")
+        .select("wallet_address, network")
+        .eq("id", withdrawalId)
+        .maybeSingle();
+
+    if (error) {
+        alert("Unable to load withdrawal details: " + error.message);
+        return;
+    }
+
+    if (!data) {
+        alert("Withdrawal request not found.");
+        return;
+    }
+
+    if (!data.wallet_address) {
+        alert("No wallet address was recorded.");
+        return;
+    }
+
+    try {
+        await copyText(data.wallet_address);
+        alert(
+            "Wallet address copied.\nNetwork: " +
+            (data.network || "Not specified")
+        );
+    } catch (err) {
+        alert("Unable to copy the wallet address.");
+    }
+}
 
 /* =========================================================
    HELPERS
@@ -2917,8 +3102,64 @@ function toggleSectionMusic(section){
 
         });
 }
+/* =========================================================
+   ADMIN VIP APPROVAL / REJECTION
+   ========================================================= */
+async function processVipRequest(id, action) {
+    if (!isCurrentUserAdmin()) {
+        alert("Administrator access required.");
+        return;
+    }
 
+    if (!["approved", "rejected"].includes(action)) {
+        alert("Invalid VIP action.");
+        return;
+    }
 
+    const confirmation = confirm(
+        action === "approved"
+            ? "Approve this VIP activation? The VIP fee will be deducted from the member's balance."
+            : "Reject this VIP activation request?"
+    );
+
+    if (!confirmation) return;
+
+    try {
+        const functionName =
+            action === "approved"
+                ? "admin_approve_vip"
+                : "admin_reject_vip";
+
+        const { data, error } = await db.rpc(functionName, {
+            p_transaction_id: id
+        });
+
+        if (error) {
+            console.error("VIP processing error:", error);
+            alert("VIP request failed: " + error.message);
+            return;
+        }
+
+        if (data && data.success === false) {
+            alert(data.message || "VIP request was not processed.");
+            return;
+        }
+
+        alert(
+            action === "approved"
+                ? "VIP activation approved successfully."
+                : "VIP activation rejected successfully."
+        );
+
+        await loadAdminPanel();
+        await refreshCurrentProfile();
+        buildVipGrid();
+
+    } catch (err) {
+        console.error("VIP processing exception:", err);
+        alert(err.message || "An unexpected error occurred.");
+    }
+}
 /* =========================================================
    ADMIN
    ========================================================= */
@@ -3118,125 +3359,140 @@ function renderAdminUsers(rows){
 
     });
 }
+function renderAdminRequests(containerId, requests, type) {
+    const container = $(containerId);
+    if (!container) return;
 
-
-function renderAdminRequests(
-    target,
-    rows,
-    type
-){
-
-    const box =
-        $(target);
-
-
-    box.innerHTML = "";
-
-
-    if(!rows.length){
-
-        box.innerHTML =
-            '<div class="notice">No pending requests.</div>';
-
+    if (!requests || requests.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                No pending ${escapeHtml(type)} requests.
+            </div>
+        `;
         return;
     }
 
-
-    rows.forEach(r => {
-
-        const el =
-            document.createElement(
-                "div"
-            );
-
-
-        el.className =
-            "admin-item";
-
-
-        let title =
+    container.innerHTML = requests.map(r => {
+        const title =
             type === "vip"
-            ? (
-                r.description ||
-                "VIP activation"
-            )
-            : type === "recharge"
-            ? "Recharge"
-            : "Withdrawal";
+                ? (r.description || "VIP activation request")
+                : type === "withdrawal"
+                    ? "Withdrawal request"
+                    : "Recharge request";
 
+        const amount = Number(r.amount || 0).toFixed(2);
 
-        el.innerHTML = `
+        const date = r.created_at
+            ? new Date(r.created_at).toLocaleString()
+            : "Date unavailable";
 
-            <div>
+        let extraDetails = "";
 
-                <h3>
-                    ${escapeHtml(title)}
-                </h3>
-
+        if (type === "withdrawal") {
+            extraDetails = `
                 <p>
-                    ${money(r.amount)}
-                    ·
-                    ${formatDate(
-                        r.created_at
-                    )}
+                    <strong>Network:</strong>
+                    ${escapeHtml(r.network || "Not specified")}
                 </p>
 
-            </div>
+                <p>
+                    <strong>Destination wallet:</strong>
+                </p>
 
-
-            <div>
-
-                <button
-                    class="small-btn"
-                    onclick="viewMember('${r.user_id}')">
-
-                    MEMBER
-
-                </button>
-
+                <p class="admin-wallet-address"
+                   style="overflow-wrap:anywhere;">
+                    ${escapeHtml(r.wallet_address || "Not provided")}
+                </p>
 
                 ${
-                    type === "recharge"
-
-                    ? `
-
-                        <button
-                            class="small-btn"
-                            onclick="approveRecharge('${r.id}')">
-
-                            APPROVE
-
-                        </button>
-
-                    `
-
-                    : type === "withdrawal"
-
-                    ? `
-
-                        <button
-                            class="small-btn"
-                            onclick="processWithdrawal('${r.id}','approved')">
-
-                            APPROVE
-
-                        </button>
-
-                    `
-
-                    : ""
+                    r.wallet_address
+                        ? `
+                            <button
+                                type="button"
+                                class="small-btn"
+                                onclick="copyTextFromAdmin('${r.id}')">
+                                COPY WALLET ADDRESS
+                            </button>
+                        `
+                        : ""
                 }
+            `;
+        }
 
+        let actionButtons = "";
+
+        if (type === "vip") {
+            actionButtons = `
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="processVipRequest('${r.id}', 'approved')">
+                    APPROVE VIP
+                </button>
+
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="processVipRequest('${r.id}', 'rejected')">
+                    REJECT VIP
+                </button>
+            `;
+        } else if (type === "withdrawal") {
+            actionButtons = `
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="processWithdrawal('${r.id}', 'approved')">
+                    APPROVE
+                </button>
+
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="processWithdrawal('${r.id}', 'rejected')">
+                    REJECT
+                </button>
+            `;
+        } else if (type === "recharge") {
+            actionButtons = `
+                <button
+                    type="button"
+                    class="small-btn"
+                    onclick="approveRecharge('${r.id}')">
+                    APPROVE
+                </button>
+            `;
+        }
+
+        return `
+            <div class="admin-item">
+                <h3>${escapeHtml(title)}</h3>
+
+                <p>
+                    <strong>Amount:</strong>
+                    $${amount}
+                </p>
+
+                <p>
+                    <strong>Status:</strong>
+                    ${escapeHtml(r.status || "pending")}
+                </p>
+
+                <p>
+                    <strong>Date:</strong>
+                    ${escapeHtml(date)}
+                </p>
+
+                ${extraDetails}
+
+                <div class="admin-request-actions">
+                    ${actionButtons}
+                </div>
             </div>
-
         `;
-
-
-        box.appendChild(el);
-
-    });
+    }).join("");
 }
-
+              
 
 async function viewMember(id){
 
@@ -3581,7 +3837,11 @@ window.approveRecharge =
 
 window.processWithdrawal =
     processWithdrawal;
+window.processVipRequest =
+    processVipRequest;
 
+window.copyTextFromAdmin =
+    copyTextFromAdmin;
 window.logoutUser =
     logoutUser;
 
